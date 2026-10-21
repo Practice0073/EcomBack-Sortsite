@@ -1,0 +1,459 @@
+/* ── Report screens (Summary / Issues / Pages), Compare ───────────────────── */
+.report-live .live {
+  max-width: 560px;
+}
+.download-control .select {
+  font-size: 0.85rem;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  width: auto;
+  max-width: 230px;
+}
+
+.row-head {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  background: none;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.table tr.is-muted .row-head {
+  color: var(--text-3);
+}
+.table tbody tr:last-child .row-head {
+  border-bottom: 0;
+}
+
+.chip--plain {
+  background: var(--surface);
+  color: var(--text-2);
+  border-color: var(--border-strong);
+}
+a.chip--plain:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+.report-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px 32px;
+}
+
+/* Issues */
+.issue-filters {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.issue-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 2;
+}
+.issue-section__head h3 {
+  font-size: 0.95rem;
+  color: var(--brand-navy);
+}
+.issue-section + .issue-section .issue-section__head {
+  border-top: 1px solid var(--border);
+}
+.issue-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+.occ-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.occ {
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+.occ:last-child {
+  border-bottom: 0;
+}
+.occ__url,
+.page-path {
+  font-weight: 600;
+  font-size: 0.875rem;
+  word-break: break-all;
+}
+.occ__line {
+  margin-top: 8px;
+}
+.occ__detail {
+  margin-top: 4px;
+  word-break: break-word;
+}
+
+/* Inventory & pages tables */
+.inv-group th {
+  background: var(--surface);
+  color: var(--brand-navy);
+  font-size: 0.8rem;
+  padding-top: 18px;
+}
+.inv-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.inv-toggle:hover {
+  color: var(--brand-navy);
+}
+.inv-chev {
+  color: var(--text-3);
+  transition: transform 0.2s var(--ease);
+  flex: none;
+}
+.inv-chev[data-open='true'] {
+  transform: rotate(90deg);
+}
+.inv-files,
+.page-detail-cell {
+  background: var(--surface-2);
+}
+.inv-files ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow: auto;
+}
+.inv-files li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+.inv-files li a {
+  word-break: break-all;
+}
+.inv-files li.is-broken a {
+  color: var(--danger);
+  font-weight: 600;
+}
+.page-detail {
+  padding: 4px 4px 4px 26px;
+}
+.page-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.page-issues > li {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.diag-urls {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  max-height: 360px;
+  overflow: auto;
+}
+.diag-urls a {
+  word-break: break-all;
+}
+
+/* Fix plan */
+.fp-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px 28px;
+}
+.fp-kpis .kpi__value {
+  font-size: 1.6rem;
+}
+.bucket--quick-win {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.bucket--major {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.bucket--fill-in {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.bucket--later {
+  background: var(--surface-sunken);
+  color: var(--text-2);
+}
+
+/* Statement */
+.statement-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+.statement-preview {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.statement-preview h4 {
+  margin: 20px 0 6px;
+  color: var(--text);
+}
+.statement-preview__h1 {
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.statement-preview ul {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+.statement-preview p + p {
+  margin-top: 8px;
+}
+
+/* 3D site map */
+.sm-wrap {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--map-bg);
+}
+.sm-canvas {
+  display: block;
+  touch-action: none;
+}
+.sm-canvas:focus-visible {
+  box-shadow: inset 0 0 0 3px var(--brand-navy);
+  border-radius: 14px;
+}
+.sm-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 14px));
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 320px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow-lg);
+  z-index: 3;
+}
+.sm-tip strong {
+  word-break: break-all;
+  font-size: 0.8rem;
+}
+.sm-tip__title {
+  color: var(--tooltip-fg);
+  opacity: 0.8;
+}
+.sm-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 0.82rem;
+}
+.sm-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sm-legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* Compare */
+.cmp-pickers {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+.cmp-arrow {
+  margin-bottom: 12px;
+  color: var(--text-3);
+}
+.cmp-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s-5);
+}
+.cmp-kpis .kpi {
+  gap: 6px;
+}
+.cmp-cat {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+.cmp-cat__bars {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 40px;
+  gap: 6px 10px;
+  align-items: center;
+}
+.cmp-cat__bars .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.delta-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+.delta-list li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.delta-list li:last-child {
+  border-bottom: 0;
+}
+.delta-list .sev-dot {
+  margin-top: 5px;
+}
+
+@media (max-width: 1100px) {
+  .statement-grid {
+    grid-template-columns: 1fr;
+  }
+  .cmp-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 900px) {
+  .issue-filters {
+    grid-template-columns: 1fr;
+    padding: 14px 16px;
+  }
+  .issue-section__head {
+    position: static;
+  }
+  .download-control .select {
+    max-width: 170px;
+  }
+}
+@media (max-width: 600px) {
+  .cmp-pickers {
+    grid-template-columns: 1fr;
+  }
+  .cmp-arrow {
+    display: none;
+  }
+  .cmp-kpis {
+    grid-template-columns: 1fr;
+  }
+  .cmp-cat {
+    grid-template-columns: 1fr;
+  }
+  .page-detail {
+    padding-left: 0;
+  }
+}
+
+/* The report top bar carries five controls: keep them on one row on wide screens, and let the bar grow instead of clipping when they wrap. */
+.topbar:has(.download-control) {
+  height: auto;
+  min-height: var(--topbar-h);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+@media (min-width: 1200px) {
+  .topbar__actions:has(.download-control) {
+    flex-wrap: nowrap;
+  }
+}
+.topbar__actions:has(.download-control) > *,
+.topbar__actions:has(.download-control) .btn svg,
+.download-control > * {
+  flex: none;
+}
+.download-control {
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+/* Below desktop width the report actions move to their own full-width row under the title. */
+@media (max-width: 1199px) {
+  .topbar:has(.download-control) {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .topbar:has(.download-control) .topbar__actions {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .topbar__actions:has(.download-control) {
+    min-width: 0;
+  }
+  .topbar__actions:has(.download-control) > .download-control {
+    flex: 1 1 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .download-control .select {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+}

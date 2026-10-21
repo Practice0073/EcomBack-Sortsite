@@ -1,0 +1,227 @@
+/* SortSite Tools by Ecomback — design tokens.
+   Palette shared with the Ecomback Remediation Platform (its public/app.css): navy #000082, coral #f44c35,
+   royal-blue sidebar with coral/periwinkle glows. Light and dark themes; every text/background pair ≥ 4.5:1.
+   Theme selection: data-theme="light|dark" on <html> (toggle in the top bar), else the OS preference. */
+:root {
+  /* Brand */
+  --brand-navy: #000082; /* primary fill & accent text */
+  --brand-navy-600: #0d0db0; /* primary hover */
+  --brand-navy-50: #ebebfb; /* soft accent background */
+  --brand-navy-100: #d9d9f6;
+  --on-primary: #ffffff; /* text on --brand-navy fills */
+  --brand-coral: #f44c35;
+  --brand-coral-700: #c2321e;
+  --brand-red: #af1c08;
+  --brand-ink: #12132b;
+  --brand-yellow: #ffd400;
+
+  /* Surfaces */
+  --bg: #f4f4f8;
+  --surface: #ffffff;
+  --surface-2: #f8f8fb;
+  --surface-sunken: #eeeef4;
+  --surface-hover: #fafafd;
+  --border: #e3e4ee;
+  --border-strong: #cfd1e0;
+
+  /* Text */
+  --text: #12132b;
+  --text-2: #33364f;
+  --text-3: #5a5f78;
+  --text-inverse: #ffffff;
+  --placeholder: #6b7088;
+  --link: #1a1ab8;
+
+  /* Semantic */
+  --success: #0a7a0a;
+  --success-bg: #e6f4e6;
+  --success-border: #b9dfb9;
+  --success-ink: #0b4f12;
+  --danger: #b42318;
+  --danger-bg: #fde8e7;
+  --danger-border: #f6c6c2;
+  --danger-ink: #7a140c;
+  --priority: #b23a1f;
+  --warning: #9a6400;
+  --warning-dot: #e09a12;
+  --warning-bg: #fdf3dc;
+  --warning-border: #f3dca3;
+  --warning-ink: #6b4300;
+  --info: #1f4fd1;
+  --info-bg: #e8eefd;
+  --info-border: #c7d6ff;
+  --info-ink: #1e3a8a;
+  --mark-bg: #fff1a8;
+
+  /* Components */
+  --topbar-bg: color-mix(in srgb, var(--bg) 82%, transparent);
+  --overlay: rgba(10, 11, 40, 0.55);
+  --tooltip-bg: #12132b;
+  --tooltip-fg: #ffffff;
+  --toast-link: #ffd400;
+  --toast-ok: #4ade80;
+  --toast-error-bg: #7a140c;
+  --snippet-bg: #12142a;
+  --snippet-fg: #e6e8fa;
+  --skeleton-a: #eceef5;
+  --skeleton-b: #f6f7fb;
+  --input-lg-bg: #ebebfb;
+  --input-lg-border: #c9cbee;
+  --progress-a: #0d0db0;
+  --progress-b: #4c51ff;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2333364f' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  /* Charts & maps (read by JS at draw time) */
+  --chart-grid: #e3e4ee;
+  --chart-axis: #5a5f78;
+  --chart-priority: #c4321d;
+  --chart-other: #d98200;
+  --chart-clean: #15803d;
+  --map-bg: #f8f8fb;
+  --map-floor: #e6e8f2;
+  --map-highlight: #000082;
+
+  /* Sidebar — royal blue with a coral glow top-left and periwinkle glow bottom-right */
+  --side-bg: #000082;
+  --side-image: radial-gradient(120% 60% at 0% 0%, rgba(244, 76, 53, 0.16), transparent 55%), radial-gradient(90% 50% at 100% 100%, rgba(120, 130, 255, 0.18), transparent 60%);
+  --side-text: #c9cbe8;
+  --side-text-strong: #ffffff;
+  --side-muted: #b3b6dc;
+  --side-hover: rgba(255, 255, 255, 0.06);
+  --side-active: rgba(255, 255, 255, 0.12);
+  --side-active-bar: #f44c35;
+  --side-border: rgba(255, 255, 255, 0.14);
+  --side-chip: rgba(255, 255, 255, 0.06);
+  --side-focus: #ffd400;
+
+  /* Type */
+  --font: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.625rem;
+  --fs-2xl: 2.125rem;
+
+  /* Space & shape */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --radius-sm: 9px;
+  --radius: 12px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(18, 19, 43, 0.06), 0 1px 1px rgba(18, 19, 43, 0.04);
+  --shadow: 0 1px 2px rgba(18, 19, 43, 0.06), 0 1px 1px rgba(18, 19, 43, 0.04);
+  --shadow-lg: 0 24px 60px -20px rgba(0, 0, 60, 0.35);
+  --shadow-primary: 0 6px 18px -8px rgba(0, 0, 130, 0.6);
+  --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-coral);
+
+  --sidebar-w: 264px;
+  --topbar-h: 72px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  color-scheme: light;
+}
+
+/* ── Dark theme (values from the Remediation Platform's dark theme) ─────────── */
+:root[data-theme='dark'] {
+  --brand-navy: #8f97ff;
+  --brand-navy-600: #a9afff;
+  --brand-navy-50: #1c1f45;
+  --brand-navy-100: #2a2e66;
+  --on-primary: #0a0b18;
+  --brand-coral-700: #ff7a63;
+  --brand-ink: #eceefa;
+
+  --bg: #0a0b18;
+  --surface: #12142a;
+  --surface-2: #171a33;
+  --surface-sunken: #0e1022;
+  --surface-hover: #161935;
+  --border: #252845;
+  --border-strong: #353961;
+
+  --text: #eceefa;
+  --text-2: #cdd0e6;
+  --text-3: #a3a8c3;
+  --text-inverse: #0a0b18;
+  --placeholder: #8a8fad;
+  --link: #a9afff;
+
+  --success: #6fdc6f;
+  --success-bg: #13291a;
+  --success-border: #24502f;
+  --success-ink: #a6efa6;
+  --danger: #ff8080;
+  --danger-bg: #301617;
+  --danger-border: #5a2a2b;
+  --danger-ink: #ffb3b3;
+  --priority: #ff8a6b;
+  --warning: #f5b83d;
+  --warning-dot: #f5b83d;
+  --warning-bg: #2c2410;
+  --warning-border: #57461c;
+  --warning-ink: #f8d58c;
+  --info: #8fb0ff;
+  --info-bg: #172040;
+  --info-border: #2b3a73;
+  --info-ink: #c2d3ff;
+  --mark-bg: #4d4214;
+
+  --topbar-bg: color-mix(in srgb, var(--bg) 82%, transparent);
+  --overlay: rgba(0, 0, 0, 0.65);
+  --tooltip-bg: #eceefa;
+  --tooltip-fg: #12132b;
+  --toast-link: #1a1ab8;
+  --toast-ok: #0a7a0a;
+  --toast-error-bg: #9b1c12;
+  --snippet-bg: #070814;
+  --snippet-fg: #dfe2fb;
+  --skeleton-a: #171a33;
+  --skeleton-b: #20244a;
+  --input-lg-bg: #171a33;
+  --input-lg-border: #353961;
+  --progress-a: #8f97ff;
+  --progress-b: #b8bdff;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23cdd0e6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+
+  --chart-grid: #252845;
+  --chart-axis: #a3a8c3;
+  --chart-priority: #ff8a6b;
+  --chart-other: #f5b83d;
+  --chart-clean: #6fdc6f;
+  --map-bg: #0e1022;
+  --map-floor: #1c1f3d;
+  --map-highlight: #a9afff;
+
+  --side-bg: #07081a;
+  --side-text: #a3a8c3;
+  --side-muted: #8f94b5;
+  --side-active: rgba(143, 151, 255, 0.14);
+  --side-border: rgba(255, 255, 255, 0.08);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+  --shadow-primary: none;
+  --focus: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-coral);
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

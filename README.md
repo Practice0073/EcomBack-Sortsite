@@ -1,0 +1,89 @@
+![Ecomback](./assets/ecomback-logo.svg)
+
+# SortSite Tools by Ecomback
+
+Website quality scanner for Ecomback and its clients. It crawls a site (Shopify-first) and reports **accessibility (WCAG 2.0–2.2, ADA, Section 508, EN 301 549, PDF/UA)**, **broken links**, **SEO**, **browser compatibility**, **HTML/CSS standards** and **usability**. It keeps trend history, a 3D site map, a prioritized fix plan and branded exports.
+
+- Product spec: [Plan.md](./Plan.md)
+- Every change: [change-logs.md](./change-logs.md)
+
+## Requirements
+
+| Need | Notes |
+|---|---|
+| Node.js 22.5+ (tested on 25) | Uses the built-in `node:sqlite`, so no database server is needed |
+| Google Chrome | Used for rendering, axe-core accessibility checks, screenshots and PDF export. Found automatically on macOS, Linux and Windows; override with `CHROME_PATH`. Without Chrome, only static checks run. |
+
+## Run on localhost
+
+```bash
+npm install
+npm run dev
+```
+
+Open **http://localhost:4000** and sign in with the account created on first run:
+
+| Email | Password |
+|---|---|
+| `admin@ecomback.com` | `Ecomback-Local-2026!` |
+
+Change the password under **Account › Security**. Seed different credentials with `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` and `SEED_ADMIN_NAME` before the first run.
+
+Production build: `npm run build && npm start`. Wipe all local data: `npm run reset`.
+
+## Configuration (environment variables)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4000` | HTTP port (Vite HMR uses PORT+1) |
+| `BASE_URL` | `http://localhost:PORT` | Used in email links |
+| `DATA_DIR` | `./data` | Database, screenshots, exports, outbox |
+| `CHROME_PATH` | auto-detected | Chrome/Chromium executable |
+| `PAGE_CONCURRENCY` / `SCAN_CONCURRENCY` | `4` / `2` | Pages rendered in parallel per scan / scans in parallel |
+| `SECRET_KEY` | random file in `data/.secret-key` | AES-256-GCM key for stored credentials and 2FA secrets |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | unset | Real email delivery. Without these, emails go to **Help › Email Outbox**. |
+| `SCANNER_IPS` | `127.0.0.1 (local development)` | Comma-separated egress IPs shown on the Billing page for allowlisting |
+| `AUDIT_RETENTION_DAYS` | `183` | Audit-log retention (about 6 months) |
+
+## REST API
+
+All endpoints live under `/api/v1` (Plan.md §12). For scripts, create a token under **Account › Settings › API tokens** and send it as a bearer token:
+
+```bash
+curl -H "Authorization: Bearer sst_…" http://localhost:4000/api/v1/sites
+curl -H "Authorization: Bearer sst_…" -H "Content-Type: application/json" \
+     -d '{"url":"https://example.com","scope":"site"}' http://localhost:4000/api/v1/scans
+```
+
+Live progress is streamed over Server-Sent Events at `/api/v1/events`.
+
+## Connected apps (OAuth 2.0)
+
+Other Ecomback tools, first the **Ecomback Remediation Platform**, connect through OAuth 2.0 (authorization code + PKCE) instead of shared tokens:
+
+1. *Settings › Connected apps* → **Add Remediation Platform** → **Register app** → copy the `SORTSITE_*` lines into the other app's `.env` and restart it.
+2. In the other app, press **Connect SortSite Tools**. The user signs in here, sees a consent screen and presses **Allow and connect**.
+3. The app gets a scoped token (`scans:read`, `scans:write`) limited to scan and report endpoints. Disconnect it from either side.
+
+Endpoints: `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, metadata at `/.well-known/oauth-authorization-server`.
+
+## Architecture
+
+```
+web/            React + TypeScript SPA (Vite)      — screens, design system, 3D site map
+server/
+  routes/       REST API (auth, sites/scans, reports, exports, sitemaps, account, admin, SSE)
+  engine/       crawler, Chrome renderer, analyzers, rule catalog, queue, scheduler
+  reports/      report data model + Word/PDF/HTML/Excel/CSV/JSON exporters
+  auth/ lib/    sessions, CSRF, crypto (scrypt, AES-GCM, TOTP), audit, quotas
+shared/         types and scan options shared by server and UI
+assets/         Ecomback logo files
+```
+
+The job queue lives in SQLite, so a restart resumes interrupted scans from their saved crawl state.
+
+## Not in this version
+
+- Billing plans and online payments (deferred by the owner). The Billing page shows quotas, usage and scanner IPs.
+- The benchmark ("better/worse than average") blends local scans with a provisional 45% baseline until 20+ sites have been scanned (see Plan.md §18.2).
+- Before launch, clear the use of the name "SortSite" with legal (Plan.md §18.1).
