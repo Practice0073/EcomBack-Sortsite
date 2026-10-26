@@ -22,7 +22,9 @@ export function searchAnalyzer(ctx: PageContext, facts: Map<string, SearchFacts>
     return { line: lineOf(el), snippet: el ? snippetOf($raw, el) : null };
   };
 
-  const title = $('head title').first().text().replace(/\s+/g, ' ').trim();
+  // `title`, not `head title`: an <img> or <div> inside <head> (tracking pixels, consent scripts) makes the
+  // parser close <head> early and move the title into <body>, which read as "title missing" on every page.
+  const title = $('title').first().text().replace(/\s+/g, ' ').trim();
   const description = ($('meta[name="description" i]').attr('content') ?? '').replace(/\s+/g, ' ').trim();
   const robotsMeta = `${$('meta[name="robots" i]').attr('content') ?? ''} ${ctx.headers['x-robots-tag'] ?? ''}`.toLowerCase();
   const noindex = robotsMeta.includes('noindex');

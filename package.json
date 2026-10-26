@@ -1,14 +1,19 @@
 {
   "name": "sortsite-tools-by-ecomback",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "SortSite Tools by Ecomback - website quality scanner",
   "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "dev": "tsx watch --clear-screen=false --ignore ./web --ignore ./data server/index.ts",
     "build": "vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check:links": "tsx server/scripts/checkLinkVerdicts.ts",
+    "check:rules": "tsx server/scripts/checkRules.ts",
     "seed": "tsx server/scripts/seed.ts",
     "reset": "rm -rf data && tsx server/scripts/seed.ts"
   },

@@ -9,7 +9,7 @@ import type { ScanOptions, ScanScope } from '../../shared/options.js';
 import type { ScanProgress, ScanStatus, Severity } from '../../shared/types.js';
 import { getRule } from './rules/catalog.js';
 import type { Finding } from './rules/types.js';
-import { CookieJar, Throttle, authHeaders, fetchUrl, unlockShopifyStorefront, type FetchResult, type FetcherOptions } from './fetcher.js';
+import { CookieJar, Throttle, authHeaders, fetchUrl, sleep, unlockShopifyStorefront, type FetchResult, type FetcherOptions } from './fetcher.js';
 import { axeTagsFor, browserAvailable, renderPage, type RenderResult } from './browser.js';
 import { SourceMap, loadWithLocations, lineOf, snippetOf, visibleText } from './source.js';
 import {
@@ -34,7 +34,7 @@ import { standardsAnalyzer, validateCss } from './analyzers/standards.js';
 import { usabilityAnalyzer } from './analyzers/usability.js';
 import { compatibilityAnalyzer, checkCssCompat, cssFeatures } from './analyzers/compatibility.js';
 import { pdfAnalyzer } from './analyzers/pdf.js';
-import { BROKEN_SQL, linkVerdict } from './linkStatus.js';
+import { BROKEN_SQL, linkVerdict, unverifiedReason } from './linkStatus.js';
 import { computeStats } from './stats.js';
 import { afterScanFinished } from './afterScan.js';
 
@@ -161,6 +161,7 @@ class ScanRunner {
     if (this.stopFlag) return this.finish('stopped');
     await this.checkLinks();
     if (this.stopFlag) return this.finish('stopped');
+    await this.recheckFailedLinks();
     await this.siteLevelChecks();
     await this.finish('completed');
   }
@@ -413,7 +414,7 @@ class ScanRunner {
     findings.push(...searchAnalyzer(ctx, this.facts));
     findings.push(...this.brokenAnchors(ctx));
 
-    const title = ($dom('head title').first().text() || $raw('title').first().text()).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const title = ($dom('title').first().text() || $raw('title').first().text()).replace(/\s+/g, ' ').trim().slice(0, 300);
     const pageId = this.insertPage(item, finalUrl, res, rendered, { title, words: ctx.text.split(/\s+/).filter(Boolean).length });
     this.insertFindings(pageId, findings);
     for (const f of findings) {
@@ -617,6 +618,41 @@ class ScanRunner {
     return { ...this.externalFo, throttle: t };
   }
 
+  /**
+   * Second look at links that failed with a network error or a server error. A DNS hiccup, a dropped
+   * connection or a 5xx that lasted one minute must not reach a client report as a broken link, so each is
+   * fetched once more after a pause; the ones that answer normally are recorded as such.
+   */
+  private async recheckFailedLinks() {
+    const failed = q.all<{ url: string; internal: number }>(
+      `SELECT r.url, r.internal FROM scan_resources r WHERE r.scan_id = ? AND ${BROKEN_SQL} AND (r.status IS NULL OR r.status >= 500) LIMIT 300`,
+      [this.scan.id],
+    );
+    if (!failed.length) return;
+    this.setCurrent(`Re-checking ${failed.length} failed link${failed.length === 1 ? '' : 's'}`);
+    this.emitProgress(true);
+    await sleep(2000);
+    let recovered = 0;
+    let i = 0;
+    const worker = async () => {
+      while (i < failed.length && !this.shouldStop()) {
+        const item = failed[i++]!;
+        try {
+          const fo = item.internal ? this.fo : this.externalFoFor(item.url);
+          const res = await withTimeout(fetchUrl(item.url, fo, 'GET', false), fo.timeoutMs + 10_000);
+          if (res.status !== null && linkVerdict(res.status, res.error, !!item.internal) !== 'broken') {
+            this.recordResource(item.url, { ...res, body: null }, classify(item.url, res.contentType));
+            recovered++;
+          }
+        } catch {
+          /* still failing: the first result stands */
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
+    this.diag('links-rechecked', `${failed.length} link${failed.length === 1 ? '' : 's'} that failed were checked a second time; ${recovered} answered normally and ${recovered === 1 ? 'is' : 'are'} not reported as broken.`);
+  }
+
   private async analyzeCss(url: string, res: FetchResult) {
     const css = res.body!.toString('utf8');
     const findings: Finding[] = [];
@@ -742,12 +778,7 @@ class ScanRunner {
       this.diag('rate-limited', `The server asked the scanner to slow down ${this.fo.throttle.rateLimitedHits} time(s) (HTTP 429/503); the crawl rate was reduced automatically.`);
     }
     for (const r of q.all<{ url: string; status: number }>("SELECT url, status FROM scan_resources WHERE scan_id = ? AND status BETWEEN 300 AND 399", [id]).slice(0, 300)) this.diag('unexpected-status', `Unexpected status code ${r.status}`, r.url);
-    for (const r of q.all<{ url: string; status: number | null; error: string | null; internal: number }>('SELECT url, status, error, internal FROM scan_resources WHERE scan_id = ? AND (status >= 400 OR (status IS NULL AND error IS NOT NULL))', [id]).slice(0, 800)) {
-      const verdict = linkVerdict(r.status, r.error, !!r.internal);
-      if (verdict === 'broken') this.diag('broken-link', `Broken: ${r.status ?? r.error}`, r.url);
-      else if (r.status === 403) this.diag('forbidden-403', '403 Forbidden response — the site may be blocking automated checks, so the link could not be verified (allowlist the scanner IP addresses if this is your site)', r.url);
-      else this.diag('unverified-link', `Could not verify (${r.status ?? r.error}) — rate limiting or bot protection; not reported as broken`, r.url);
-    }
+    linkDiagnostics(id);
     if (this.skippedForLimit > 0) this.diag('page-limit', `Page limit of ${this.maxPages} reached; ${this.skippedForLimit} more pages were found but not scanned.`);
     if (!this.chromeOk) this.diag('no-chrome', 'Google Chrome was not found, so pages were checked without rendering JavaScript (contrast and rendered-DOM checks skipped).');
   }
@@ -790,9 +821,31 @@ class ScanRunner {
     if (!force && Date.now() - this.lastEmit < 800) return;
     this.lastEmit = Date.now();
     const found = Math.min(this.maxPages, this.pagesDone + this.frontier.filter((f) => classify(f.url).subtype === 'HTML').length);
-    q.run('UPDATE scans SET pages_found = ?, pages_done = ? WHERE id = ?', [found, this.pagesDone, this.scan.id]);
+    // The issue percentages fill in while the scan runs (same definition as the finished report: pages
+    // with at least one priority or other issue), so lists and rings never sit at 0% for an hour.
+    const live = q.get<{ pages: number; issues: number; priority: number; other: number }>(
+      'SELECT COUNT(*) AS pages, COALESCE(SUM(priority_count > 0 OR other_count > 0), 0) AS issues, COALESCE(SUM(priority_count > 0), 0) AS priority, COALESCE(SUM(other_count > 0), 0) AS other FROM scan_pages WHERE scan_id = ?',
+      [this.scan.id],
+    )!;
+    const pct = (n: number) => (live.pages ? Math.round((n / live.pages) * 1000) / 10 : 0);
+    q.run('UPDATE scans SET pages_found = ?, pages_done = ?, issue_pct = ?, priority_pct = ?, other_pct = ? WHERE id = ?', [found, this.pagesDone, pct(live.issues), pct(live.priority), pct(live.other), this.scan.id]);
     bus.emitEvent({ type: 'scan.progress', accountId: this.accountId, progress: progressOf(this.scan.id, this.avgMs) });
   }
+}
+
+/** Diagnostics for every link that did not answer 2xx/3xx: broken, blocked (403) or not verifiable. Rebuilt by the results repair too. */
+export function linkDiagnostics(scanId: number) {
+  q.run("DELETE FROM diagnostics WHERE scan_id = ? AND code IN ('broken-link', 'forbidden-403', 'unverified-link')", [scanId]);
+  const rows = q.all<{ url: string; status: number | null; error: string | null; internal: number }>('SELECT url, status, error, internal FROM scan_resources WHERE scan_id = ? AND (status >= 400 OR (status IS NULL AND error IS NOT NULL)) ORDER BY internal DESC, url', [scanId]).slice(0, 800);
+  tx(() => {
+    for (const r of rows) {
+      const verdict = linkVerdict(r.status, r.error, !!r.internal);
+      const insert = (code: string, message: string) => q.run('INSERT INTO diagnostics (scan_id, code, message, url, detail) VALUES (?,?,?,?,?)', [scanId, code, message, r.url, null]);
+      if (verdict === 'broken') insert('broken-link', `Broken: ${r.status ?? r.error}`);
+      else if (r.status === 403) insert('forbidden-403', '403 Forbidden response — the site may be blocking automated checks, so the link could not be verified (allowlist the scanner IP addresses if this is your site)');
+      else insert('unverified-link', `Could not verify: ${unverifiedReason(r.status, r.error)}. Not reported as broken.`);
+    }
+  });
 }
 
 /** axe rules PowerMapper/SortSite does not test; skipped in PowerMapper compatibility mode so results line up. */
@@ -849,12 +902,12 @@ export function estimateDisk(scanId: number): number {
 }
 
 export function progressOf(scanId: number, avgMs = 0): ScanProgress {
-  const s = q.get<{ id: number; site_id: number; status: ScanStatus; pages_found: number; pages_done: number; current_url: string | null; started_at: string | null; links_total: number; links_done: number; links_started_at: string | null }>(
-    'SELECT id, site_id, status, pages_found, pages_done, current_url, started_at, links_total, links_done, links_started_at FROM scans WHERE id = ?',
+  const s = q.get<{ id: number; site_id: number; status: ScanStatus; pages_found: number; pages_done: number; current_url: string | null; started_at: string | null; links_total: number; links_done: number; links_started_at: string | null; issue_pct: number; priority_pct: number }>(
+    'SELECT id, site_id, status, pages_found, pages_done, current_url, started_at, links_total, links_done, links_started_at, issue_pct, priority_pct FROM scans WHERE id = ?',
     [scanId],
   )!;
   const running = s.status === 'running';
-  const finishing = running && (s.current_url ?? '').startsWith('Analysing site-wide');
+  const finishing = running && /^(Analysing site-wide|Re-checking)/.test(s.current_url ?? '');
   const phase: ScanProgress['phase'] = s.status === 'queued' ? 'queued' : !running ? 'done' : finishing ? 'finishing' : s.links_total > 0 ? 'links' : 'crawl';
   // Progress is split across phases so the bar keeps moving: pages 0–80%, links 80–98%, site-wide 98–99%.
   const target = Math.max(s.pages_found, s.pages_done, 1);
@@ -888,5 +941,7 @@ export function progressOf(scanId: number, avgMs = 0): ScanProgress {
     etaSeconds: running ? eta : null,
     percent: Math.max(0, Math.min(s.status === 'completed' ? 100 : 99, percent)),
     startedAt: s.started_at,
+    issuePct: s.issue_pct,
+    priorityPct: s.priority_pct,
   };
 }

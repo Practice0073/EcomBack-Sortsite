@@ -12,8 +12,6 @@ import {
   Lock,
   Mail,
   Menu,
-  Moon,
-  Sun,
   Network,
   ScanSearch,
   Settings,
@@ -25,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useAuth, useLiveEvents, usePageChrome, useToast } from '../lib/app';
 import { api, onLoading } from '../lib/api';
-import { useTheme } from '../lib/theme';
+import { ThemeToggle } from './ThemeToggle';
 import { fmtRelative } from '../lib/format';
 import { PRODUCT_NAME, type Notification, type Permission } from '@shared/types';
 
@@ -137,7 +135,7 @@ export function AppShell() {
               <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{me?.accountName}</span>
             </span>
           </div>
-          © {new Date().getFullYear()} Ecomback
+          © {new Date().getFullYear()} Ecomback · v{__APP_VERSION__}
         </div>
       </aside>
       {navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />}
@@ -171,17 +169,6 @@ export function AppShell() {
       </div>
       <Toasts />
     </div>
-  );
-}
-
-/** Light/dark switch, like the Remediation Platform's top-bar toggle. */
-function ThemeToggle() {
-  const [theme, setTheme] = useTheme();
-  const dark = theme === 'dark';
-  return (
-    <button type="button" className="icon-btn" aria-label="Dark theme" aria-pressed={dark} title={dark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={() => setTheme(dark ? 'light' : 'dark')}>
-      {dark ? <Sun size={20} /> : <Moon size={20} />}
-    </button>
   );
 }
 

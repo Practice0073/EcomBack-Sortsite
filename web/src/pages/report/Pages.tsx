@@ -94,14 +94,17 @@ function InventoryRow({ scanId, kind, row }: { scanId: number; kind: string; row
             ) : (
               <ul role="list">
                 {files.map((f) => {
-                  const broken = (f.status ?? 0) >= 400 || (f.status === null && !!f.error);
+                  const broken = f.verdict === 'broken';
                   return (
                     <li key={f.url} className={broken ? 'is-broken' : undefined}>
                       <a href={f.url} target="_blank" rel="noreferrer noopener">
                         {f.url}
                         <span className="sr-only"> (opens in new tab)</span>
                       </a>
-                      <span className={`badge ${broken ? 'badge--danger' : 'badge--neutral'}`}>{f.status ?? f.error ?? '—'}</span>
+                      <span className={`badge ${broken ? 'badge--danger' : f.verdict === 'unverified' ? 'badge--warning' : 'badge--neutral'}`} title={f.verdict === 'unverified' ? 'The other site refused or did not answer the automated check; not reported as broken' : undefined}>
+                        {f.status ?? f.error ?? '—'}
+                        {f.verdict === 'unverified' && <span className="sr-only"> (could not verify)</span>}
+                      </span>
                       {!f.internal && <span className="badge badge--info">External</span>}
                       {f.bytes ? <span className="xsmall muted">{fmtBytes(f.bytes)}</span> : null}
                     </li>

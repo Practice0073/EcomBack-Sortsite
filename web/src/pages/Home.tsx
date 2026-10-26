@@ -90,7 +90,23 @@ function RecentScans() {
                   <span className="muted">Not scanned</span>
                 )}
               </td>
-              <td>{s.running ? <span className="muted small">Scanning…</span> : s.lastScan ? <Link className="ring-link" to={`/scans/${s.lastScan.id}/report`} aria-label={`Report: ${Math.round(s.lastScan.issuePct)}% of pages have issues`}><MiniRing value={s.lastScan.issuePct} /></Link> : '—'}</td>
+              <td>
+                {s.running ? (
+                  s.running.pagesDone > 0 ? (
+                    <Link className="ring-link" to={`/scans/${s.running.scanId}/report`} aria-label={`Live report: ${Math.round(s.running.issuePct)}% of pages checked so far have issues`}>
+                      <MiniRing value={s.running.issuePct} live />
+                    </Link>
+                  ) : (
+                    <span className="muted small">Scanning…</span>
+                  )
+                ) : s.lastScan && s.lastScan.status !== 'failed' && s.lastScan.pagesChecked > 0 ? (
+                  <Link className="ring-link" to={`/scans/${s.lastScan.id}/report`} aria-label={`Report: ${Math.round(s.lastScan.issuePct)}% of pages have issues`}>
+                    <MiniRing value={s.lastScan.issuePct} />
+                  </Link>
+                ) : (
+                  '—'
+                )}
+              </td>
               <td className="num">{s.running && <StopScanButton scanId={s.running.scanId} small onDone={() => void reload(true)} />}</td>
             </tr>
           ))}

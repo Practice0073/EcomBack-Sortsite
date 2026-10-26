@@ -124,9 +124,16 @@ export function cssFeatures(css: string, lineOffset = 0): CssFeatureSet {
   return { hits, prefixed };
 }
 
+/** Touch browsers have no mouse pointer or resize handles: "unsupported" there changes nothing for visitors. */
+const TOUCH_BROWSERS = new Set<BrowserId>(['safari_ios', 'chrome_android']);
+const POINTER_ONLY_CSS = /^(cursor|resize)(:|$)/;
+/** Virtual-keyboard hints mean nothing on desktop browsers, so their missing support is not a compatibility problem. */
+const TOUCH_ONLY_ATTRS = new Set(['autocapitalize', 'inputmode', 'enterkeyhint']);
+
 export function checkCssCompat(set: CssFeatureSet, browsers: BrowserId[]): Finding[] {
   const out: Finding[] = [];
   for (const h of set.hits) {
+    const pointerOnly = (h.kind === 'css-prop' || h.kind === 'css-value') && POINTER_ONLY_CSS.test(h.name);
     let compat: Compat['__compat'];
     let key = h.name;
     if (h.kind === 'css-prop') compat = data.css.properties[h.name]?.__compat;
@@ -138,6 +145,7 @@ export function checkCssCompat(set: CssFeatureSet, browsers: BrowserId[]): Findi
     if (!compat) continue;
     key = `${h.kind}:${h.name}`;
     for (const [b, level] of verdict(key, compat, browsers, h.kind === 'css-prop' ? set.prefixed : undefined, h.name)) {
+      if (pointerOnly && TOUCH_BROWSERS.has(b)) continue;
       const rule = ruleFor(h.kind, h.name, b, level, compat.mdn_url);
       out.push({ ruleId: rule.id, line: h.line, snippet: h.snippet });
     }
@@ -174,6 +182,7 @@ export function compatibilityAnalyzer(ctx: PageContext): Finding[] {
       const compat = ((data.html.elements[tag]?.[a] as Compat | undefined) ?? data.html.global_attributes[a])?.__compat;
       if (!compat) continue;
       for (const [b, level] of verdict(`html-attr:${tag}:${a}`, compat, browsers)) {
+        if (TOUCH_ONLY_ATTRS.has(a) && !TOUCH_BROWSERS.has(b)) continue;
         out.push({ ruleId: ruleFor('html-attr', `${tag}[${a}]`, b, level, compat.mdn_url).id, line: lineOf(el), snippet: snippetOf($, el) });
       }
     }

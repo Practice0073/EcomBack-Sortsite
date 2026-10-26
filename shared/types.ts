@@ -79,6 +79,9 @@ export interface ScanProgress {
   etaSeconds: number | null;
   percent: number;
   startedAt: string | null;
+  /** Share of pages checked so far that already have a priority or other issue (fills in while the scan runs). */
+  issuePct: number;
+  priorityPct: number;
 }
 
 export interface SiteRow {
@@ -144,7 +147,16 @@ export interface ReportSummary {
   options: ScanOptions;
   shopify: boolean;
   running: ScanProgress | null;
+  /** Distinct failing rules (priority + other) and warning-only rules found in this scan. */
+  issueTypes: { failing: number; warnings: number };
+  /** The most widespread failing issues, for the overview's "fix these first" list. */
+  topIssues: TopIssue[];
+  /** The previous completed scan of the same site, for the "since last scan" comparison. */
+  previous: PreviousScan | null;
 }
+
+export interface TopIssue { ruleId: string; title: string; category: Category; severity: Severity; section: string; pages: number; occurrences: number; templateLevel: boolean }
+export interface PreviousScan { scanId: number; finishedAt: string | null; issuePct: number; priorityPct: number; complianceScore: number | null; pagesChecked: number }
 
 export interface IssueGroup {
   ruleId: string;

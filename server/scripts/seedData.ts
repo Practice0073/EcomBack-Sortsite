@@ -9,6 +9,28 @@ export const DEFAULT_ADMIN = {
 
 const RELEASE_NOTES = [
   {
+    version: '1.1.0',
+    title: 'SortSite Tools by Ecomback 1.1',
+    category: 'Release',
+    date: '2026-10-22',
+    features: [
+      'Issue percentages fill in live while a scan runs, on Home, Scans, Scan History and the report',
+      'Report overview: scan at a glance (pages, files, rules, issue types), the most widespread issues to fix first, and the change since the previous scan',
+      'Failed links are checked a second time before they are reported, so one-off network errors never reach a client report',
+      'Diagnostics explain why a link could not be verified (bot protection, certificate chain, rate limiting)',
+      'Production deployment: Docker image with Chromium, docker-compose, Vercel front end with API rewrites, proxy and cookie settings',
+    ],
+    rules: [
+      'Page title detection no longer fails when the page has an <img> or <div> inside <head>',
+      'External links are reported as broken only for 404/410 or persistent server errors; refused requests (400, 405, bot protection) and certificate problems on other sites are "could not verify"',
+      'Browser compatibility: cursor and resize are not reported for iPhone/iPad and Android (no pointer, no resize handles)',
+      'CSS validation understands @font-face and other at-rule descriptors (src, font-display, unicode-range)',
+      'Text with font-size 0 is no longer "too small"; CSS-inserted text in screen-reader-only elements is no longer an F87 failure',
+      'Stored results of earlier scans were repaired with these rules (see the "Results updated" diagnostic on each report)',
+    ],
+    fixes: ['The Compatibility card on the report overview showed only six of the seven browsers'],
+  },
+  {
     version: '1.0.0',
     title: 'SortSite Tools by Ecomback 1.0',
     category: 'Release',
@@ -36,8 +58,17 @@ const RELEASE_NOTES = [
   },
 ];
 
+/** Release notes are versioned content: new versions are added to existing databases too. */
+function ensureReleaseNotes() {
+  for (const n of RELEASE_NOTES) {
+    if (q.get('SELECT id FROM release_notes WHERE version = ?', [n.version])) continue;
+    q.run('INSERT INTO release_notes (version, title, category, released_at, new_features, rule_changes, fixes) VALUES (?,?,?,?,?,?,?)', [n.version, n.title, n.category, n.date, JSON.stringify(n.features), JSON.stringify(n.rules), JSON.stringify(n.fixes)]);
+  }
+}
+
 /** Idempotent first-run seed: default plan, account, administrator and release notes. */
 export function ensureSeed() {
+  ensureReleaseNotes();
   if (q.get('SELECT id FROM accounts LIMIT 1')) return;
   tx(() => {
     const planId = q.run(
@@ -55,9 +86,6 @@ export function ensureSeed() {
       nowIso(),
     ]);
     q.run('INSERT INTO alert_settings (account_id) VALUES (?)', [accountId]);
-    for (const n of RELEASE_NOTES) {
-      q.run('INSERT INTO release_notes (version, title, category, released_at, new_features, rule_changes, fixes) VALUES (?,?,?,?,?,?,?)', [n.version, n.title, n.category, n.date, JSON.stringify(n.features), JSON.stringify(n.rules), JSON.stringify(n.fixes)]);
-    }
   });
   console.log('\n  First run: created the Ecomback account.');
   console.log(`  Sign in with  ${DEFAULT_ADMIN.email}  /  ${DEFAULT_ADMIN.password}`);

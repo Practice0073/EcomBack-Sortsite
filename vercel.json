@@ -1,0 +1,29 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/web",
+  "installCommand": "npm ci",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://sortsite-api.example.com/api/:path*" },
+    { "source": "/media/:path*", "destination": "https://sortsite-api.example.com/media/:path*" },
+    { "source": "/oauth/token", "destination": "https://sortsite-api.example.com/oauth/token" },
+    { "source": "/oauth/revoke", "destination": "https://sortsite-api.example.com/oauth/revoke" },
+    { "source": "/.well-known/:path*", "destination": "https://sortsite-api.example.com/.well-known/:path*" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

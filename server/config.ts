@@ -3,6 +3,8 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const dataDir = path.resolve(process.env.DATA_DIR ?? path.join(root, 'data'));
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { version: string };
+const baseUrl = process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`;
 
 function findChrome(): string | null {
   const candidates = [
@@ -21,9 +23,14 @@ function findChrome(): string | null {
 
 export const config = {
   root,
+  version: pkg.version,
   port: Number(process.env.PORT ?? 4000),
   isProd: process.env.NODE_ENV === 'production',
-  baseUrl: process.env.BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`,
+  baseUrl,
+  /** Behind a reverse proxy or PaaS (Railway, Render, Fly.io, Vercel rewrites) set TRUST_PROXY=1 so client IPs come from X-Forwarded-For. */
+  trustProxy: process.env.TRUST_PROXY === undefined ? 'loopback' : /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY === 'true' ? true : process.env.TRUST_PROXY,
+  /** Session cookies are marked Secure in production unless the public address is plain http (an internal LAN deployment). */
+  cookieSecure: process.env.NODE_ENV === 'production' && !baseUrl.startsWith('http://'),
   dataDir,
   dbFile: path.join(dataDir, 'sortsite.db'),
   screenshotsDir: path.join(dataDir, 'screenshots'),
@@ -33,6 +40,8 @@ export const config = {
   secretKeyFile: path.join(dataDir, '.secret-key'),
   assetsDir: path.join(root, 'assets'),
   chromePath: findChrome(),
+  /** Extra Chrome flags, e.g. CHROME_ARGS="--no-sandbox --disable-gpu" inside containers that run Chrome as a non-root user without user namespaces. */
+  chromeArgs: (process.env.CHROME_ARGS ?? '').split(/\s+/).filter(Boolean),
   /** Concurrent page workers per scan and concurrent scans overall. */
   pageConcurrency: Number(process.env.PAGE_CONCURRENCY ?? 4),
   scanConcurrency: Number(process.env.SCAN_CONCURRENCY ?? 2),

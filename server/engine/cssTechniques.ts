@@ -60,6 +60,17 @@ export async function runCssTechniques(page: Page, externalCss: string[], extern
       return r.width > 0 && r.height > 0;
     };
     const hasOwnText = (el: Element) => Array.from(el.childNodes).some((n) => n.nodeType === 3 && /\S/.test(n.textContent ?? ''));
+    // Visually hidden elements (sr-only / screen-only patterns, 1×1 clipped boxes, aria-hidden helpers):
+    // text generated into them is not shown to anyone, so it is not "meaningful text inserted with CSS".
+    const visuallyHidden = (el: Element) => {
+      if (!visible(el)) return true;
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      if (parseFloat(cs.opacity) === 0) return true;
+      if (r.width <= 1 && r.height <= 1) return true;
+      if (/^rect\(\s*(0|1)(px)?[,\s]+(0|1)(px)?[,\s]+(0|1)(px)?[,\s]+(0|1)(px)?\s*\)$/.test(cs.clip) || /inset\(\s*(50|100)%/.test(cs.clipPath)) return true;
+      return !!el.closest('[aria-hidden="true"]');
+    };
 
     // ── Collect author style rules (readable sheets + fetched cross-origin sheets), honouring @media.
     interface Rule { selector: string; style: CSSStyleDeclaration; reducedMotion: boolean; source: string }
@@ -132,23 +143,30 @@ export async function runCssTechniques(page: Page, externalCss: string[], extern
     // nearest coloured ancestor. Backgrounds are transparent, so an author background on any ancestor counts.
     const fg = new Map<Element, string>();
     const bg = new Map<Element, string>();
+    /** Author rules saying `color: currentColor | inherit`: the colour is the author's, taken from the parent, so a link styled this way does not use the browser's link colour. */
+    const fgInherits = new Set<Element>();
+    const INHERIT_COLOUR = /^(inherit|currentcolor|unset|revert|revert-layer)$/i;
     const sheetOf = (r: Rule) => r.source;
     for (const r of rules) {
       if (r.reducedMotion) continue;
-      const hasFg = isColourValue(r.style.getPropertyValue('color'));
+      const colourValue = r.style.getPropertyValue('color').trim();
+      const hasFg = isColourValue(colourValue);
+      const inheritsFg = INHERIT_COLOUR.test(colourValue);
       const bgc = r.style.getPropertyValue('background-color');
       const bgi = r.style.getPropertyValue('background-image');
       const bgShort = r.style.getPropertyValue('background');
       const hasBg = (isColourValue(bgc) && !/^transparent$/i.test(bgc.trim())) || (!!bgi && bgi !== 'none' && bgi !== 'initial') || (!!bgShort && !/^(none|initial|inherit|unset|transparent)$/i.test(bgShort.trim()));
-      if (!hasFg && !hasBg) continue;
+      if (!hasFg && !hasBg && !inheritsFg) continue;
       for (const el of matches(r.selector)) {
         if (hasFg && !fg.has(el)) fg.set(el, sheetOf(r));
+        if (inheritsFg) fgInherits.add(el);
         if (hasBg && !bg.has(el)) bg.set(el, sheetOf(r));
       }
     }
     for (const el of Array.from(document.querySelectorAll('[style], [bgcolor], font[color], body[text], body[link]'))) {
       const st = (el as HTMLElement).style;
       if (isColourValue(st.color) || el.hasAttribute('color') || el.hasAttribute('text')) fg.set(el, 'HTML');
+      if (INHERIT_COLOUR.test(st.color.trim())) fgInherits.add(el);
       if ((isColourValue(st.backgroundColor) && st.backgroundColor !== 'transparent') || (st.backgroundImage && st.backgroundImage !== 'none') || el.hasAttribute('bgcolor')) bg.set(el, 'HTML');
     }
     const bodyLinkAttr = document.body?.hasAttribute('link');
@@ -157,7 +175,8 @@ export async function runCssTechniques(page: Page, externalCss: string[], extern
     const fgSource = (el: Element): string | null => {
       for (let cur: Element | null = el; cur; cur = cur.parentElement) {
         if (fg.has(cur)) return fg.get(cur)!;
-        if (isLink(cur)) return bodyLinkAttr ? 'HTML' : null; // browser :link colour stops inheritance
+        // The browser's own :link colour stops inheritance — unless the author told the link to inherit.
+        if (isLink(cur) && !fgInherits.has(cur)) return bodyLinkAttr ? 'HTML' : null;
       }
       return null;
     };
@@ -261,7 +280,7 @@ export async function runCssTechniques(page: Page, externalCss: string[], extern
         const text = m[1]!.replace(/\\[0-9a-f]{1,6}\s?/gi, (e) => String.fromCodePoint(parseInt(e.slice(1), 16)));
         // Real words (2+ letters) only: icon-font glyphs (private use area), arrows and punctuation are decorative.
         const letters = text.replace(/[-]/g, '').match(/\p{L}{2,}/gu);
-        if (!letters || !visible(el)) continue;
+        if (!letters || visuallyHidden(el)) continue;
         push('F87', el, `Text "${text.trim().slice(0, 60)}" is inserted with CSS ${pseudo}; it is lost when styles are turned off or customised.`);
       }
     }

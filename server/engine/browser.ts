@@ -24,7 +24,7 @@ export async function getBrowser(): Promise<Browser> {
     executablePath: config.chromePath,
     headless: true,
     acceptInsecureCerts: true,
-    args: ['--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', '--hide-scrollbars'],
+    args: ['--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', '--hide-scrollbars', ...config.chromeArgs],
   });
   const b = await browserPromise;
   // A dropped connection (e.g. after the computer sleeps) can leave Chrome running with the scan's open
@@ -247,7 +247,8 @@ async function renderOnce(url: string, ro: RenderOptions): Promise<RenderResult>
           const cs = getComputedStyle(el);
           const size = parseFloat(cs.fontSize);
           const r = el.getBoundingClientRect();
-          if (size < 12 && cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0 && !el.closest('[aria-hidden="true"],.visually-hidden,.sr-only')) {
+          // font-size: 0 is the "hide the text, keep the icon" technique, not small text.
+          if (size > 0 && size < 12 && cs.visibility !== 'hidden' && cs.display !== 'none' && r.width > 0 && r.height > 0 && !el.closest('[aria-hidden="true"],.visually-hidden,.sr-only')) {
             small.push({ selector: sel(el), snippet: el.outerHTML.slice(0, 300), size });
           }
         }

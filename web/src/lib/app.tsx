@@ -120,6 +120,45 @@ export function EventsProvider({ children }: { children: ReactNode }) {
     let releaseLock: (() => void) | null = null;
     let disposed = false;
     const abort = new AbortController();
+
+    // Polling fallback: some proxies (and the Vercel front end's API rewrites) buffer or cut long-lived
+    // streams. After repeated stream errors the leader tab polls the scan list instead and synthesises the
+    // same events, so live progress keeps working everywhere; it stops as soon as the stream reconnects.
+    let streamErrors = 0;
+    let poll: number | null = null;
+    let polledRunning = new Map<number, { siteId: number }>();
+    const stopPolling = () => {
+      if (poll !== null) window.clearInterval(poll);
+      poll = null;
+    };
+    const pollOnce = async () => {
+      if (disposed) return;
+      try {
+        const r = await api.get<{ items: { id: number; siteId: number; status: string; running: ScanProgress | null }[] }>('/scans?limit=25', { quiet: true });
+        const seen = new Map<number, { siteId: number }>();
+        for (const s of r.items) {
+          if (s.running) {
+            seen.set(s.id, { siteId: s.siteId });
+            const e: LiveEvent = { type: 'scan.progress', progress: s.running };
+            deliver(e);
+            channel?.postMessage(e);
+          } else if (polledRunning.has(s.id)) {
+            const e: LiveEvent = { type: 'scan.finished', scanId: s.id, siteId: s.siteId, status: s.status };
+            deliver(e);
+            channel?.postMessage(e);
+          }
+        }
+        polledRunning = seen;
+      } catch {
+        /* the next tick tries again */
+      }
+    };
+    const startPolling = () => {
+      if (poll !== null || disposed) return;
+      void pollOnce();
+      poll = window.setInterval(() => void pollOnce(), 5000);
+    };
+
     const open = () => {
       source = new EventSource('/api/v1/events');
       const handler = (ev: MessageEvent<string>) => {
@@ -129,10 +168,18 @@ export function EventsProvider({ children }: { children: ReactNode }) {
         channel?.postMessage(data);
       };
       for (const t of ['scan.progress', 'scan.finished', 'sitemap.progress', 'notification']) source.addEventListener(t, handler as (ev: Event) => void);
+      source.addEventListener('open', () => {
+        streamErrors = 0;
+        stopPolling();
+      });
+      source.addEventListener('error', () => {
+        if (++streamErrors >= 2) startPolling();
+      });
     };
     const close = () => {
       source?.close();
       source = null;
+      stopPolling();
     };
     window.addEventListener('pagehide', close);
 

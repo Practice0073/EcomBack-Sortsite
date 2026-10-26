@@ -47,7 +47,7 @@ declare module 'express-serve-static-core' {
 const cookieOpts = (maxAge?: number) => ({
   httpOnly: true,
   sameSite: 'lax' as const,
-  secure: config.isProd,
+  secure: config.cookieSecure,
   path: '/',
   ...(maxAge ? { maxAge } : {}),
 });

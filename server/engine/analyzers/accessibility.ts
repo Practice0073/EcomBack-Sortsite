@@ -57,8 +57,11 @@ export function accessibilityAnalyzer(ctx: PageContext): Finding[] {
 const CSS_RULE: Record<string, string> = { F24: 'accessibility.f24-colors', F78: 'accessibility.f78-focus', anim: 'accessibility.animation-5s', F87: 'accessibility.f87-css-content' };
 const GENERIC_LINK = /^(click here|here|read more|more|learn more|more info|more information|details|continue|go|link|this|view more|see more|find out more|shop now|buy now)$/i;
 const PLACEHOLDER_TITLE = /^(untitled( document)?|new page|page|document|index|default|test|title|home ?page|blog|welcome|[\w-]+\.(html?|php|aspx?|jsp))$/i;
-/** Elements whose implicit ARIA role equals the explicit role (ARIA in HTML). */
-const IMPLICIT_ROLE: Record<string, string> = { h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading', h5: 'heading', h6: 'heading', button: 'button', nav: 'navigation', main: 'main', ul: 'list', ol: 'list', li: 'listitem', table: 'table', form: 'form', aside: 'complementary', article: 'article', dialog: 'dialog' };
+/**
+ * Elements whose implicit ARIA role equals the explicit role (ARIA in HTML). Lists are deliberately absent:
+ * `<ul role="list">` is the documented fix for Safari/VoiceOver dropping list semantics when list-style is none.
+ */
+const IMPLICIT_ROLE: Record<string, string> = { h1: 'heading', h2: 'heading', h3: 'heading', h4: 'heading', h5: 'heading', h6: 'heading', button: 'button', nav: 'navigation', main: 'main', table: 'table', form: 'form', aside: 'complementary', article: 'article', dialog: 'dialog' };
 
 /**
  * WCAG technique checks: CSS-cascade failures found in the rendered page (F24, F78, 2.2.2, F87) and
@@ -71,9 +74,10 @@ function techniqueChecks(ctx: PageContext): Finding[] {
     out.push({ ruleId: CSS_RULE[f.technique]!, line: ctx.src.locate(f.html), snippet: f.html, selector: f.selector, detail: f.detail });
   }
   const $ = ctx.$dom;
-  const title = $('head title').first().text().replace(/\s+/g, ' ').trim();
+  // `title`, not `head title`: invalid content inside <head> makes the parser move the title into <body>.
+  const title = $('title').first().text().replace(/\s+/g, ' ').trim();
   if (title && PLACEHOLDER_TITLE.test(title)) {
-    const el = $('head title').get(0);
+    const el = $('title').get(0);
     out.push({ ruleId: 'accessibility.title-placeholder', line: ctx.src.find('<title') , snippet: el ? snippetOf($, el) : `<title>${title}</title>`, detail: `Title: "${title}"` });
   }
   $('a[href]').each((_, el) => {

@@ -45,7 +45,7 @@ export function HistoryPage() {
   if (!site.data || !history.data) return <LoadingBlock rows={8} />;
   const s = site.data;
   const h = history.data;
-  const latest = h.items.find((r) => r.status === 'completed' || r.status === 'stopped') ?? (s.lastScan as HistoryRow | null);
+  const latest = h.items.find((r) => r.status === 'completed' || r.status === 'stopped') ?? (s.lastScan && s.lastScan.status !== 'failed' ? (s.lastScan as HistoryRow) : null);
   const host = hostOf(s.url);
   const finished = h.items.filter((r) => !r.running);
 
@@ -119,7 +119,14 @@ export function HistoryPage() {
         <div className="card__body summary-strip">
           <Thumb src={s.thumbnail} alt={`Home page of ${host}`} large />
           <div className="stack" style={{ alignItems: 'center', gap: 8 }}>
-            {latest ? (
+            {s.running && s.running.pagesDone > 0 ? (
+              <>
+                <Link to={`/scans/${s.running.scanId}/report`} aria-label={`Open live report: ${Math.round(s.running.issuePct)}% of pages checked so far have issues`}>
+                  <Gauge value={s.running.issuePct} size={128} sub="so far" ariaLabel={`${Math.round(s.running.issuePct)}% of pages checked so far have issues`} />
+                </Link>
+                <strong>Issues <span className="badge badge--success badge--live" style={{ marginLeft: 4 }}>Live</span></strong>
+              </>
+            ) : latest ? (
               <>
                 <Link to={`/scans/${latest.id}/report`} aria-label={`Open latest report: ${Math.round(latest.issuePct)}% of pages have issues`}>
                   <Gauge value={latest.issuePct} size={128} sub="of pages" ariaLabel={`${Math.round(latest.issuePct)}% of pages have issues`} />
@@ -196,7 +203,23 @@ export function HistoryPage() {
                   </td>
                   <td>{SCOPE_LABELS[r.scope]} scan</td>
                   <td className="small">{fmtPct(r.diskPct, 2)}</td>
-                  <td>{r.running || r.status === 'failed' || r.pagesChecked === 0 ? <span className="muted">—</span> : <Link className="ring-link" to={`/scans/${r.id}/report`} aria-label={`Open report: ${Math.round(r.issuePct)}% of pages have issues`}><MiniRing value={r.issuePct} /></Link>}</td>
+                  <td>
+                    {r.running ? (
+                      r.running.pagesDone > 0 ? (
+                        <Link className="ring-link" to={`/scans/${r.id}/report`} aria-label={`Open live report: ${Math.round(r.running.issuePct)}% of pages checked so far have issues`}>
+                          <MiniRing value={r.running.issuePct} live />
+                        </Link>
+                      ) : (
+                        <span className="muted">—</span>
+                      )
+                    ) : r.status === 'failed' || r.pagesChecked === 0 ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <Link className="ring-link" to={`/scans/${r.id}/report`} aria-label={`Open report: ${Math.round(r.issuePct)}% of pages have issues`}>
+                        <MiniRing value={r.issuePct} />
+                      </Link>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

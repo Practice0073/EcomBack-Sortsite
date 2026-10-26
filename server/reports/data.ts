@@ -5,10 +5,10 @@ import type { ScanRecord, SiteRecord } from '../lib/access.js';
 import { benchmarkFor, categoryBenchmarks, computeStats, scoreGrade, type ScanStats } from '../engine/stats.js';
 import { getRule } from '../engine/rules/catalog.js';
 import { progressOf } from '../engine/scanRunner.js';
-import { BROKEN_SQL } from '../engine/linkStatus.js';
+import { BROKEN_SQL, linkVerdict, type LinkVerdict } from '../engine/linkStatus.js';
 import { scanDto } from '../routes/dto.js';
 import { CATEGORY_LABELS, SCOPE_LABELS, BROWSER_LABELS, READING_AGE_LABELS, SPELL_LANGUAGE_LABELS, type Category, type ScanOptions } from '../../shared/options.js';
-import type { IssueGroup, IssueOccurrencePage, ReportSummary, Severity } from '../../shared/types.js';
+import type { IssueGroup, IssueOccurrencePage, PreviousScan, ReportSummary, Severity, TopIssue } from '../../shared/types.js';
 
 const SEVERITY_RANK: Record<Severity, number> = { priority: 0, other: 1, warning: 2 };
 
@@ -37,7 +37,44 @@ export function reportSummary(scan: ScanRecord, site: SiteRecord): ReportSummary
     options: { ...options, crawler: { ...options.crawler, basicPassword: '', headers: '', cookies: '', shopifyStorefrontPassword: '' } },
     shopify: !!scan.shopify,
     running: scan.status === 'running' || scan.status === 'queued' ? progressOf(scan.id) : null,
+    issueTypes: issueTypeCounts(scan.id),
+    topIssues: topIssues(scan.id),
+    previous: previousScan(scan),
   };
+}
+
+function issueTypeCounts(scanId: number): ReportSummary['issueTypes'] {
+  const row = q.get<{ failing: number; warnings: number }>(
+    `SELECT COUNT(DISTINCT CASE WHEN severity != 'warning' THEN rule_id END) AS failing,
+            COUNT(DISTINCT CASE WHEN severity = 'warning' THEN rule_id END) AS warnings
+       FROM issues WHERE scan_id = ?`,
+    [scanId],
+  );
+  // A rule that fails on some pages and only needs review on others counts once, as failing.
+  return { failing: row?.failing ?? 0, warnings: Math.max(0, (row?.warnings ?? 0) - Number(q.value("SELECT COUNT(DISTINCT rule_id) FROM issues WHERE scan_id = ? AND severity = 'warning' AND rule_id IN (SELECT rule_id FROM issues WHERE scan_id = ? AND severity != 'warning')", [scanId, scanId]))) };
+}
+
+/** The failing rules that touch the most pages: priority first, then reach. */
+function topIssues(scanId: number, limit = 6): TopIssue[] {
+  const rows = q.all<{ rule_id: string; pages: number; occ: number; priority: number }>(
+    `SELECT rule_id, COUNT(DISTINCT page_id) AS pages, COUNT(*) AS occ, MAX(severity = 'priority') AS priority
+       FROM issues WHERE scan_id = ? AND severity != 'warning' GROUP BY rule_id ORDER BY priority DESC, pages DESC, occ DESC LIMIT ?`,
+    [scanId, limit],
+  );
+  const htmlPages = Math.max(1, Number(q.value("SELECT COUNT(*) FROM scan_pages WHERE scan_id = ? AND content_type LIKE 'text/html%'", [scanId])));
+  return rows.flatMap((r) => {
+    const rule = getRule(r.rule_id);
+    if (!rule) return [];
+    return [{ ruleId: rule.id, title: rule.title, category: rule.category, severity: r.priority ? 'priority' : 'other', section: rule.section, pages: r.pages, occurrences: r.occ, templateLevel: isTemplateLevel(scanId, rule.id, r.pages, htmlPages, true) } satisfies TopIssue];
+  });
+}
+
+function previousScan(scan: ScanRecord): PreviousScan | null {
+  const p = q.get<{ id: number; finished_at: string | null; issue_pct: number; priority_pct: number; compliance_score: number | null; pages_checked: number }>(
+    "SELECT id, finished_at, issue_pct, priority_pct, compliance_score, pages_checked FROM scans WHERE site_id = ? AND status = 'completed' AND id < ? ORDER BY id DESC LIMIT 1",
+    [scan.site_id, scan.id],
+  );
+  return p ? { scanId: p.id, finishedAt: p.finished_at, issuePct: p.issue_pct, priorityPct: p.priority_pct, complianceScore: p.compliance_score, pagesChecked: p.pages_checked } : null;
 }
 
 export interface IssueFilters { category?: Category | 'all'; severity?: Severity | 'all'; guideline?: string; text?: string }
@@ -224,8 +261,10 @@ export function inventory(scanId: number) {
   }));
 }
 
-export function inventoryFiles(scanId: number, kind: string, subtype: string, limit = 500) {
-  return q.all<{ url: string; status: number | null; bytes: number | null; internal: number; error: string | null }>('SELECT url, status, bytes, internal, error FROM scan_resources WHERE scan_id = ? AND kind = ? AND subtype = ? ORDER BY internal DESC, url LIMIT ?', [scanId, kind, subtype, limit]);
+export function inventoryFiles(scanId: number, kind: string, subtype: string, limit = 500): { url: string; status: number | null; bytes: number | null; internal: number; error: string | null; verdict: LinkVerdict }[] {
+  return q
+    .all<{ url: string; status: number | null; bytes: number | null; internal: number; error: string | null }>('SELECT url, status, bytes, internal, error FROM scan_resources WHERE scan_id = ? AND kind = ? AND subtype = ? ORDER BY internal DESC, url LIMIT ?', [scanId, kind, subtype, limit])
+    .map((r) => ({ ...r, verdict: linkVerdict(r.status, r.error, !!r.internal) }));
 }
 
 const DIAGNOSTIC_LABELS: Record<string, string> = {
@@ -239,7 +278,9 @@ const DIAGNOSTIC_LABELS: Record<string, string> = {
   'unexpected-status': 'Unexpected status codes (redirects)',
   'broken-link': 'Broken links',
   'forbidden-403': '403 Forbidden responses',
-  'unverified-link': 'Links that could not be verified (rate limits, bot protection, timeouts)',
+  'unverified-link': 'Links that could not be verified (bot protection, certificate problems, rate limits, timeouts)',
+  'links-rechecked': 'Failed links checked a second time',
+  'results-repaired': 'Results updated by newer rules',
   'page-limit': 'Page limit reached',
   'no-chrome': 'Browser rendering unavailable',
   'render-failed': 'Pages that could not be rendered',

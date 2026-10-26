@@ -9,6 +9,56 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Repository move — 26 Oct 2026
+
+Owner request: move the code to the GitHub repository that will be connected to Vercel.
+
+### Changed
+- Git remote `origin` now points to `https://github.com/Practice0073/EcomBack-Sortsite.git`; the previous remote (`ecomback-official/PM-sortsite`) is kept as `old-origin`. All pending work (v1.1.0 and later UI changes) committed and pushed to `main`. No code changes.
+
+### Verified
+- `npm run typecheck` clean; `npm run build` produces `dist/web` (the Vercel build command and output directory in `vercel.json`).
+- No `.env`, database or `data/` files are tracked (`.gitignore`).
+
+---
+
+## [1.1.0] — 22 Oct 2026: Accurate results, live issue percentages, report overview, deployment
+
+Owner request: "issue percent should populate accordingly", a more mature UI/UX, and a path to publishing (Vercel).
+
+### Why the percentages were wrong
+Every scanned site showed 98–100% of pages with issues and ~100% with *priority* issues. Queries over the stored results found rules firing on every page that were false positives; after correction, ecomback.com's priority pages went from 98.2% to 12.7% and its ADA/WCAG score from 53 to 65; the Shopify Dawn demo store goes from 100% priority pages to 0% (score 100).
+- **"Page title missing" on 100% of ecomback.com pages** — the pages have titles. An `<img>` (tracking pixel) inside `<head>` makes the HTML parser close `<head>` early, so `$('head title')` found nothing. All title lookups now use `$('title')`. *Files:* `server/engine/analyzers/search.ts`, `accessibility.ts`, `scanRunner.ts`.
+- **Broken links on 100% of pages** — facebook.com answers `400` to anything that is not a browser (a footer link on every page), and a government site with an incomplete certificate chain (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`) was "broken" although browsers open it. New verdict: on the scanned site every failure is broken; on other sites only 404/410 and persistent 5xx are broken, while refused requests (400/401/403/405/429…), certificate problems, reset sockets, temporary DNS failures and timeouts are "could not verify" (listed in Diagnostics with the reason). `BROKEN_SQL` is NULL-safe so `NOT BROKEN_SQL` works; `npm run check:links` proves the TypeScript and SQL forms agree on 74 combinations. *File:* `server/engine/linkStatus.ts`.
+- **Browser compatibility: `cursor: pointer` / `resize` "not supported on iPhone/iPad"** on every page — touch browsers have no pointer or resize handles, so nothing changes for visitors; likewise `autocapitalize`/`inputmode`/`enterkeyhint` on desktop browsers. Both are skipped. *File:* `server/engine/analyzers/compatibility.ts`.
+- **CSS "Unknown property src / font-display / unicode-range"** and **"device-width is not a valid value for width"** — descriptors inside `@font-face` / `@viewport` were validated as properties. Declarations directly inside at-rules now use css-tree's descriptor grammar; unknown vendor at-rules are skipped. *File:* `server/engine/analyzers/standards.ts`.
+- **F87 "text inserted with CSS" on every ecomback.com page** — Elementor's `elementor-screen-only` helper (1×1 px, clipped) gets `::after` content for device detection. Visually hidden elements (clip, 1 px, opacity 0, aria-hidden) are no longer F87 failures. **F24** no longer treats links styled `color: currentColor`/`inherit` as browser-coloured (Dawn's product cards: 260 false findings on 14 pages). *File:* `server/engine/cssTechniques.ts`.
+- **"Text is too small" for `font-size: 0`** (the hide-text technique) is skipped. *File:* `server/engine/browser.ts`.
+- **`<ul role="list">` reported as redundant ARIA** (216 warnings on 14 Dawn pages) — it is the documented VoiceOver fix. **"Meta description missing (Bing)"** is now *other*, like the Google rule; as *priority* it made clean stores 100% red. *Files:* `server/engine/analyzers/accessibility.ts`, `server/engine/rules/catalog.ts`.
+
+### Added
+- **Stored results repaired** (`server/engine/maintenance.ts`, meta key `results-version`): the corrected rules are applied to finished scans at start-up (title findings on pages with a title, refused links, pointer-only CSS, descriptors, font-size 0, hidden F87, list roles, Bing severity); per-page counters and statistics are recomputed, link diagnostics rebuilt, and each report gets a "Results updated by newer rules" diagnostic with a cumulative tally. On this database: 20,216 findings removed and 24 reclassified across 5 scans.
+- **Failed links are checked a second time** (`recheckFailedLinks`) after a pause, before the report is built; links that answer normally are not reported as broken (diagnostic "Failed links checked a second time"). *File:* `server/engine/scanRunner.ts`.
+- **Live issue percentages**: `issue_pct` / `priority_pct` / `other_pct` are updated with every progress event (same definition as the finished report) and carried in `ScanProgress.issuePct`; Home, Scans and Scan History show a live ring ("100% so far", *Live* badge) while a scan runs. A site whose last scan failed shows *Failed* and the reason instead of "Never". *Files:* `scanRunner.ts`, `shared/types.ts`, `server/routes/dto.ts`, `web/src/pages/Home.tsx`, `Scans.tsx`, `History.tsx`, `web/src/components/ui.tsx`, `web/src/styles/pages.css`.
+- **Report overview**: severity legend; "scan at a glance" strip (pages, files, rules, issue types, pages with priority issues); change since the previous scan (percentage points, score delta, link to Compare); **Most widespread issues** (top failing rules with reach bars, category, theme-level badge); the Compatibility card lists all seven browsers (it cut the list at six). Issue rings read as a traffic light (≤5% green, ≤30% amber, else red). `ReportSummary` gains `issueTypes`, `topIssues`, `previous`. *Files:* `web/src/pages/report/Overview.tsx`, `web/src/styles/report.css`, `server/reports/data.ts`, `shared/types.ts`.
+- **Inventory** file lists use the link verdict (broken / could not verify / ok) instead of "status ≥ 400". *Files:* `server/reports/data.ts`, `web/src/pages/report/Pages.tsx`, `context.tsx`.
+- **Polling fallback for live events**: when the SSE stream fails twice (proxies, Vercel rewrites), the leader tab polls `/scans` every 5 s and synthesises the same events; it stops when the stream reconnects. *File:* `web/src/lib/app.tsx`.
+- **Deployment**: `Dockerfile` (Node 22 + Chromium, unprivileged user, health check), `docker-compose.yml` (persistent `/data` volume, 1 GB shm), `.dockerignore`, `vercel.json` (web app on Vercel with `/api`, `/media`, `/oauth/token|revoke`, `/.well-known` rewritten to the API host) and a README "Deploying" section. New settings `TRUST_PROXY` and `CHROME_ARGS`; session cookies are `Secure` in production unless `BASE_URL` is `http://`; `/api/v1/health` reports the package version. *Files:* `server/config.ts`, `server/index.ts`, `server/auth/session.ts`, `server/engine/browser.ts`, `README.md`.
+- **Checks**: `npm run check:links` (verdict parity) and `npm run check:rules` (known-answer tests for every correction above; the in-browser part needs Chrome). Version 1.1.0 (`package.json`, engine version, sidebar footer via `__APP_VERSION__`, release-notes entry added to existing databases). *Files:* `server/scripts/checkLinkVerdicts.ts`, `checkRules.ts`, `seedData.ts`, `vite.config.ts`, `web/src/vite-env.d.ts`.
+- **Sign-in pages redesigned** (23 Oct; first pass copied the owner's Client & Team Portal reference, then the owner asked for something unique and more elite). The final design is a dark cinematic stage built from SortSite's own signature visual: the isometric page-tower map, alive. Pages rise as they are found, a scan beam sweeps across and colours each tower by its result (periwinkle clean, amber other, coral priority), findings surface as callouts (`/products/linen-shirt · Image without alt text · WCAG 1.1.1` …), the HUD counts pages and files and the ADA / WCAG score settles at 94 / Grade A; the loop restarts with a slightly different site every 14 s, with pointer parallax. Over it, a frosted glass card: monospace overline, editorial headline ("Welcome back." + an italic Instrument Serif accent in coral), fields, brand-navy button (white in the dark theme), "Forgot password?", and the "Need an account?" note (billing@ecomback.com / 1-818-839-8888). Top bar: brand lockup, theme toggle, "Contact Ecomback"; footer: legal links and version. Two-factor, forgot/reset-password and OAuth consent share the layout with their own headlines; the card never greys its button while fields are empty (a message explains what is missing). Accessibility: canvas described, HUD and callouts aria-hidden, a Pause control that freezes the timeline in place, reduced motion shows the finished state with no autoplay. Performance: canvas 2D for the city, DOM writes for the HUD, framer-motion only for callouts; the stage is a lazy chunk so signed-in pages never load it. `ThemeToggle` moved to `web/src/components/ThemeToggle.tsx`. *Files:* `web/src/components/ScanStage.tsx` (new), `web/src/pages/Login.tsx`, `web/src/pages/OAuthConsent.tsx`, `web/src/styles/auth.css` (new), `web/src/styles/pages.css` (old auth block removed), `web/src/components/AppShell.tsx`, `web/index.html` (Instrument Serif).
+
+### Why Vercel alone is not possible
+The scanner keeps Chrome open, runs scans for up to an hour, stores results in SQLite on disk and streams progress; Vercel's serverless functions have no persistent disk, no Chrome and time limits far below a scan. The container runs anywhere (Railway, Render, Fly.io, a VPS); Vercel can serve the web app in front of it through the rewrites in `vercel.json` (replace `sortsite-api.example.com`).
+
+### Verified
+- `tsc --noEmit` clean; `vite build` succeeds; `npm run check:links` OK (74 combinations, 16 spot checks); `npm run check:rules` 16/16.
+- Folder scan of the Shopify Dawn demo (`/collections/`, 14 pages) under the new rules: 0 priority pages (was 100%), 0 F24 findings (was 260), 0 cursor/resize/@font-face findings, score 100. Live `issuePct` observed in the API from the first page onward and on the Scans and History screens ("100% so far", *Live*); the Scans table has no horizontal overflow at 1440 px with a running row. Test sites (ecomback.com page-links, Dawn demo, W3C demo) were deleted afterwards.
+- A test scan of www.ecomback.com failed with `UND_ERR_CONNECT_TIMEOUT`: this Mac could not reach ecomback.com at all at the time (curl timed out too); the Scans list now shows *Failed* with the reason.
+- Screenshots (1440 px light and dark, 390 px) of Home, Scans, Scan History, Overview (ecomback.com and Dawn), Diagnostics, Inventory and Dashboard reviewed after the changes.
+- Sign-in pages: screenshots at 1920/1440/1280 px (light and dark), 390 px and reduced motion, plus forgot/reset/consent states; headless probes confirm the timeline (finding → analysing → complete → score 94 → loop at 14 s), that Pause freezes it in place and Play resumes, that every control is clickable (hit test through the fixed layers) and that the tab order reaches every control.
+
+---
+
 ## [1.0.0-dev.18] — 20 Oct 2026: No false accessibility issues on pages Chrome could not render
 
 ### Fixed

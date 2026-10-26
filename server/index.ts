@@ -20,15 +20,17 @@ import { recoverInterruptedJobs, shutdownWorkers, tick } from './engine/queue.js
 import { startScheduler } from './engine/scheduler.js';
 import { closeBrowser } from './engine/browser.js';
 import { refreshStoredStats } from './engine/stats.js';
+import { repairStoredResults } from './engine/maintenance.js';
 import { ensureSeed } from './scripts/seedData.js';
 
 syncRuleCatalog();
 ensureSeed();
+repairStoredResults();
 refreshStoredStats();
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', 'loopback');
+app.set('trust proxy', config.trustProxy);
 
 // Security headers for our own UI (Plan.md §10/§14).
 app.use((_req, res, next) => {
@@ -50,7 +52,7 @@ app.use(oauthPublicRouter);
 // ── API v1 ────────────────────────────────────────────────────────────────────
 const api = Router();
 api.use('/auth', authRouter);
-api.get('/health', (_req, res) => res.json({ ok: true, chrome: !!config.chromePath, version: '1.0.0' }));
+api.get('/health', (_req, res) => res.json({ ok: true, chrome: !!config.chromePath, version: config.version }));
 api.use(requireAuth);
 api.use('/account', securityRouter);
 api.get('/events', eventsHandler);
@@ -94,7 +96,7 @@ startScheduler();
 void tick();
 
 const server = app.listen(config.port, () => {
-  console.log(`\n  SortSite Tools by Ecomback  →  ${config.baseUrl}`);
+  console.log(`\n  SortSite Tools by Ecomback ${config.version}  →  ${config.baseUrl}${config.isProd ? `  (listening on :${config.port})` : ''}`);
   console.log(`  Chrome: ${config.chromePath ?? 'NOT FOUND (static checks only — set CHROME_PATH)'}`);
   console.log(`  Data:   ${config.dataDir}\n`);
 });

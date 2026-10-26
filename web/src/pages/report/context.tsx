@@ -38,7 +38,7 @@ export interface PageDetail {
 }
 
 export interface InventoryGroup { kind: string; label: string; rows: { subtype: string; description: string; count: number; internal: number; broken: number; bytes: number }[] }
-export interface InventoryFile { url: string; status: number | null; bytes: number | null; internal: number; error: string | null }
+export interface InventoryFile { url: string; status: number | null; bytes: number | null; internal: number; error: string | null; verdict: 'ok' | 'broken' | 'unverified' }
 
 export interface DiagnosticGroup { code: string; label: string; message: string; count: number; urls: string[] }
 

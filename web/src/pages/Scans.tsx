@@ -175,9 +175,30 @@ export function ScansPage() {
                         <span className="muted small">Never</span>
                       )}
                       {!s.running && s.lastScan && s.lastScan.status !== 'completed' && <> <StatusBadge status={s.lastScan.status} /></>}
+                      {!s.running && s.lastScan?.status === 'failed' && s.lastScan.error && (
+                        <span className="xsmall" title={s.lastScan.error} style={{ display: 'block', marginTop: 4, color: 'var(--danger)', maxWidth: 170, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {s.lastScan.error}
+                        </span>
+                      )}
                     </td>
                     <td className="small">{fmtPct(s.diskPct, 2)}</td>
-                    <td>{s.lastScan && !s.running ? <Link className="ring-link" to={`/scans/${s.lastScan.id}/report`} aria-label={`Open report: ${Math.round(s.lastScan.issuePct)}% of pages have issues`}><MiniRing value={s.lastScan.issuePct} /></Link> : <span className="muted small">—</span>}</td>
+                    <td>
+                      {s.running ? (
+                        s.running.pagesDone > 0 ? (
+                          <Link className="ring-link" to={`/scans/${s.running.scanId}/report`} aria-label={`Open live report: ${Math.round(s.running.issuePct)}% of pages checked so far have issues`}>
+                            <MiniRing value={s.running.issuePct} live />
+                          </Link>
+                        ) : (
+                          <span className="muted small">Scanning…</span>
+                        )
+                      ) : s.lastScan && s.lastScan.status !== 'failed' && s.lastScan.pagesChecked > 0 ? (
+                        <Link className="ring-link" to={`/scans/${s.lastScan.id}/report`} aria-label={`Open report: ${Math.round(s.lastScan.issuePct)}% of pages have issues`}>
+                          <MiniRing value={s.lastScan.issuePct} />
+                        </Link>
+                      ) : (
+                        <span className="muted small">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -54,8 +54,8 @@ export function OAuthConsentPage() {
   };
 
   return (
-    <AuthLayout heading="Connect an App" aside={false}>
-      <div className="auth__form" style={{ maxWidth: 560 }}>
+    <AuthLayout heading="Connect an app." accent="You stay in control." aside={false}>
+      <div className="stack" style={{ gap: 20 }}>
         {error ? (
           <div className="banner banner--danger" role="alert">
             <AlertCircle size={18} aria-hidden="true" />

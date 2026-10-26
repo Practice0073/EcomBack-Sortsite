@@ -29,7 +29,8 @@ export function scanDto(s: ScanRecord, quotaBytes: number): ScanSummaryRow {
 
 export function siteDto(site: SiteRecord & { client_name?: string | null }): SiteRow {
   const quota = planFor(site.account_id).disk_quota_bytes;
-  const last = q.get<ScanRecord>("SELECT * FROM scans WHERE site_id = ? AND status IN ('completed','stopped') ORDER BY id DESC LIMIT 1", [site.id]);
+  // The latest finished scan, failures included, so a site whose last scan failed says so instead of "Never".
+  const last = q.get<ScanRecord>("SELECT * FROM scans WHERE site_id = ? AND status IN ('completed','stopped','failed') ORDER BY id DESC LIMIT 1", [site.id]);
   const active = q.get<ScanRecord>("SELECT * FROM scans WHERE site_id = ? AND status IN ('queued','running') ORDER BY id DESC LIMIT 1", [site.id]);
   const disk = Number(q.value('SELECT COALESCE(SUM(disk_bytes),0) FROM scans WHERE site_id = ?', [site.id]));
   const o = openOptions(site.options_json);

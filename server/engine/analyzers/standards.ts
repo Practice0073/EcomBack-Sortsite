@@ -163,17 +163,31 @@ export function validateCss(css: string, lineOffset = 0): Finding[] {
   }
   csstree.walk(ast, {
     visit: 'Declaration',
-    enter(node: csstree.Declaration) {
+    enter(this: { atrule: csstree.Atrule | null; rule: csstree.Rule | null }, node: csstree.Declaration) {
       if (out.length >= 300) return;
       const prop = node.property;
       if (prop.startsWith('--') || /^-[a-z]+-/.test(prop) || prop.startsWith('*') || prop.startsWith('_')) return; // custom, vendor, IE hacks
       const valueText = csstree.generate(node.value);
       if (/var\(|env\(|attr\(|!ie|expression\(/i.test(valueText)) return;
+      const line = (node.loc?.start.line ?? 1) + lineOffset;
+      const snippet = `${prop}: ${valueText}`.slice(0, 200);
+      // Declarations directly inside @font-face, @page, @property… are descriptors, not properties:
+      // `src`, `font-display` and `unicode-range` are valid there and must be checked against the at-rule.
+      if (this.atrule && !this.rule) {
+        const d = csstree.lexer.matchAtruleDescriptor(this.atrule.name, prop, node.value);
+        if (!d.error) return;
+        if (d.error.name === 'SyntaxReferenceError') {
+          // Unknown at-rule (e.g. @-ms-viewport): nothing to check it against. Unknown descriptor: report.
+          if (/descriptor/i.test(d.error.message)) out.push({ ruleId: 'standards.css-unknown-property', line, snippet, detail: `Unknown descriptor "${prop}" for @${this.atrule.name}` });
+        } else if (d.error.name === 'SyntaxMatchError') {
+          out.push({ ruleId: 'standards.css-invalid-value', line, snippet, detail: `"${valueText.slice(0, 80)}" is not a valid value for ${prop} in @${this.atrule.name}` });
+        }
+        return;
+      }
       const m = csstree.lexer.matchProperty(prop, node.value);
       if (!m.error) return;
-      const line = (node.loc?.start.line ?? 1) + lineOffset;
-      if (m.error.name === 'SyntaxReferenceError') out.push({ ruleId: 'standards.css-unknown-property', line, snippet: `${prop}: ${valueText}`.slice(0, 200), detail: `Unknown property "${prop}"` });
-      else if (m.error.name === 'SyntaxMatchError') out.push({ ruleId: 'standards.css-invalid-value', line, snippet: `${prop}: ${valueText}`.slice(0, 200), detail: `"${valueText.slice(0, 80)}" is not a valid value for ${prop}` });
+      if (m.error.name === 'SyntaxReferenceError') out.push({ ruleId: 'standards.css-unknown-property', line, snippet, detail: `Unknown property "${prop}"` });
+      else if (m.error.name === 'SyntaxMatchError') out.push({ ruleId: 'standards.css-invalid-value', line, snippet, detail: `"${valueText.slice(0, 80)}" is not a valid value for ${prop}` });
     },
   });
   return out;

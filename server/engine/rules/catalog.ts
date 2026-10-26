@@ -5,7 +5,7 @@ import type { Category } from '../../../shared/options.js';
 import type { GuidelineRef, Severity } from '../../../shared/types.js';
 import type { RuleDef } from './types.js';
 
-export const ENGINE_VERSION = '1.0.0';
+export const ENGINE_VERSION = '1.1.0';
 
 const g = {
   wcag: (num: string): GuidelineRef => {
@@ -68,7 +68,9 @@ def('search.title-long-bing', 'search', 'other', 'Bing', 'Page title too long fo
 def('search.title-short', 'search', 'other', 'Best practices', 'Page title too short', 'The title has fewer than 15 characters and probably does not describe the page.', 'Write a descriptive title, for example "Product name – Category – Brand".', [g.google('title links', 'https://developers.google.com/search/docs/appearance/title-link')], 3);
 def('search.title-duplicate', 'search', 'other', 'Google', 'Duplicate page title', 'Several pages share the same title, so search engines struggle to tell them apart.', 'Give each page a unique title that reflects its content.', [g.google('title links', 'https://developers.google.com/search/docs/appearance/title-link')], 4);
 def('search.description-missing', 'search', 'other', 'Google', 'Meta description missing', 'There is no meta description, so search engines pick a random snippet of page text.', 'Add a 70–160 character meta description that summarises the page.', [g.google('snippets', 'https://developers.google.com/search/docs/appearance/snippet')], 4);
-def('search.description-missing-bing', 'search', 'priority', 'Bing', 'Meta description missing (Bing)', 'Bing relies heavily on the meta description for result snippets.', 'Add a 70–160 character meta description.', [g.bing('meta description')], 4);
+// "Other", like the Google rule: a missing description hurts snippets but never blocks visitors, so it must not
+// make a page a priority page (it did, and turned clean Shopify stores 100% red).
+def('search.description-missing-bing', 'search', 'other', 'Bing', 'Meta description missing (Bing)', 'Bing relies heavily on the meta description for result snippets.', 'Add a 70–160 character meta description.', [g.bing('meta description')], 4);
 def('search.description-long', 'search', 'other', 'Google', 'Meta description too long', 'The meta description is longer than about 160 characters and will be truncated.', 'Shorten the description to 160 characters or fewer.', [g.google('snippets', 'https://developers.google.com/search/docs/appearance/snippet')], 3);
 def('search.description-short', 'search', 'other', 'Best practices', 'Meta description too short', 'The meta description is under 50 characters and gives searchers little reason to click.', 'Expand it to 70–160 characters.', [g.google('snippets', 'https://developers.google.com/search/docs/appearance/snippet')], 3);
 def('search.description-duplicate', 'search', 'other', 'Google', 'Duplicate meta description', 'Several pages share the same meta description.', 'Write a unique description for each page.', [g.google('snippets', 'https://developers.google.com/search/docs/appearance/snippet')], 4);

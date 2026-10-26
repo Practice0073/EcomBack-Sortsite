@@ -9,7 +9,8 @@ export function Gauge({ value, size = 120, stroke = 11, label, sub, tone = 'issu
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.max(0, Math.min(100, value));
-  const color = tone === 'score' ? (v >= 90 ? 'var(--success)' : v >= 70 ? 'var(--warning-dot)' : 'var(--priority)') : tone === 'progress' ? 'var(--progress-a)' : v === 0 ? 'var(--success)' : 'var(--priority)';
+  // Issue rings read as a traffic light: a few pages (≤ 5%) green, a minority (≤ 30%) amber, otherwise red.
+  const color = tone === 'score' ? (v >= 90 ? 'var(--success)' : v >= 70 ? 'var(--warning-dot)' : 'var(--priority)') : tone === 'progress' ? 'var(--progress-a)' : v <= 5 ? 'var(--success)' : v <= 30 ? 'var(--warning-dot)' : 'var(--priority)';
   return (
     <div className="gauge" style={{ width: size, height: size }} role="img" aria-label={ariaLabel ?? `${Math.round(v)}%`}>
       <svg width={size} height={size} aria-hidden="true">
@@ -26,12 +27,15 @@ export function Gauge({ value, size = 120, stroke = 11, label, sub, tone = 'issu
   );
 }
 
-export function MiniRing({ value, title }: { value: number | null; title?: string }) {
+export function MiniRing({ value, title, live = false }: { value: number | null; title?: string; live?: boolean }) {
   if (value === null) return <span className="muted small">—</span>;
   return (
     <span className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
-      <Gauge value={value} size={36} stroke={5} label="" ariaLabel={title ?? `${value}% of pages have issues`} />
-      <strong className="small" style={{ fontVariantNumeric: 'tabular-nums' }}>{Math.round(value)}%</strong>
+      <Gauge value={value} size={36} stroke={5} label="" ariaLabel={title ?? `${value}% of pages have issues${live ? ' so far' : ''}`} />
+      <span style={{ lineHeight: 1.15 }}>
+        <strong className="small" style={{ fontVariantNumeric: 'tabular-nums', display: 'block' }}>{Math.round(value)}%</strong>
+        {live && <span className="xsmall muted" style={{ display: 'block' }}>so far</span>}
+      </span>
     </span>
   );
 }

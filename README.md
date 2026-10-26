@@ -31,16 +31,41 @@ Change the password under **Account › Security**. Seed different credentials w
 
 Production build: `npm run build && npm start`. Wipe all local data: `npm run reset`.
 
+Checks: `npm run typecheck`, `npm run check:links` (broken-link verdict parity between TypeScript and SQL) and `npm run check:rules` (known-answer tests for the rule corrections; the in-browser part needs Chrome).
+
+## Deploying
+
+The scanner is a long-running Node process: it keeps Chrome open, runs scans for up to an hour, stores results in SQLite on disk and streams progress over Server-Sent Events. It therefore needs a host that runs a **persistent container or server** — Railway, Render, Fly.io, DigitalOcean App Platform, a VPS, or any Docker host. It cannot run inside Vercel's serverless functions (no persistent disk, no Chrome, time limits far below a scan).
+
+### 1. Container (API + scanner + web app in one image)
+
+```bash
+docker compose up -d --build          # http://localhost:4000
+# or
+docker build -t sortsite-tools .
+docker run -d -p 4000:4000 -v sortsite-data:/data --shm-size=1g \
+  -e BASE_URL=https://scan.example.com -e SECRET_KEY='long random string' sortsite-tools
+```
+
+The image installs Chromium, builds the web app and runs as the unprivileged `node` user. Keep the `/data` volume: it holds the database, screenshots and exports. Set `BASE_URL` to the public https address (email links, OAuth metadata, cookie security), `SECRET_KEY` so stored credentials survive a rebuild, and `TRUST_PROXY=1` when a proxy or PaaS sits in front (the Dockerfile sets it).
+
+### 2. Vercel in front (optional)
+
+If you want the app on a Vercel domain, deploy the **web app only** to Vercel and point it at the container: `vercel.json` builds `dist/web` and rewrites `/api/*`, `/media/*`, `/oauth/token`, `/oauth/revoke` and `/.well-known/*` to the API host, so the browser sees one origin and sign-in cookies work unchanged. Replace `https://sortsite-api.example.com` in `vercel.json` with your container's https address, and set the container's `BASE_URL` to the Vercel address. Long-lived event streams are not guaranteed through proxies, so the web app falls back to polling the scan list every 5 seconds whenever the stream drops.
+
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `4000` | HTTP port (Vite HMR uses PORT+1) |
-| `BASE_URL` | `http://localhost:PORT` | Used in email links |
+| `BASE_URL` | `http://localhost:PORT` | Public address: email links, OAuth metadata; session cookies are `Secure` in production unless this is `http://` |
+| `TRUST_PROXY` | `loopback` | Express `trust proxy` setting (`1` behind one proxy/PaaS) so client IPs come from `X-Forwarded-For` |
 | `DATA_DIR` | `./data` | Database, screenshots, exports, outbox |
 | `CHROME_PATH` | auto-detected | Chrome/Chromium executable |
+| `CHROME_ARGS` | unset | Extra Chrome flags, e.g. `--no-sandbox --disable-gpu` in containers |
 | `PAGE_CONCURRENCY` / `SCAN_CONCURRENCY` | `4` / `2` | Pages rendered in parallel per scan / scans in parallel |
 | `SECRET_KEY` | random file in `data/.secret-key` | AES-256-GCM key for stored credentials and 2FA secrets |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME` | see above | First-run administrator |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | unset | Real email delivery. Without these, emails go to **Help › Email Outbox**. |
 | `SCANNER_IPS` | `127.0.0.1 (local development)` | Comma-separated egress IPs shown on the Billing page for allowlisting |
 | `AUDIT_RETENTION_DAYS` | `183` | Audit-log retention (about 6 months) |
@@ -81,6 +106,14 @@ assets/         Ecomback logo files
 ```
 
 The job queue lives in SQLite, so a restart resumes interrupted scans from their saved crawl state.
+
+Deployment files: `Dockerfile`, `docker-compose.yml`, `.dockerignore` (container), `vercel.json` (optional Vercel front end).
+
+## How results are counted
+
+- **Pages with issues** (the gauges and rings) = pages with at least one *priority* or *other* finding. Warnings are listed but never counted. The same definition is used live while a scan runs ("so far"), in the finished report, in exports and on the Dashboard.
+- **Priority** = WCAG Level A failures, broken links and files, server errors, missing titles/viewport. **Other** = Level AA/AAA failures, HTML/CSS validation, SEO and usability problems. **Warnings** = best practices and findings that need a person to confirm.
+- **Broken links**: on the scanned site every failed request is reported. On other people's sites only 404/410 and persistent 5xx count; refused requests (400, 401, 403, 405, 429, bot protection), certificate chains Node cannot verify and timeouts are listed under *Diagnostics › Links that could not be verified* instead. Every failed link is checked a second time before the report is built.
 
 ## Not in this version
 

@@ -1,0 +1,30 @@
+# SortSite Tools by Ecomback — single-container deployment.
+#   docker compose up -d --build
+# Then open http://localhost:4000 (or put a TLS proxy / your PaaS in front and set BASE_URL to its https address).
+services:
+  sortsite:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    # Chromium needs more shared memory than Docker's 64 MB default.
+    shm_size: 1gb
+    environment:
+      BASE_URL: ${BASE_URL:-http://localhost:4000}
+      SECRET_KEY: ${SECRET_KEY:-}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@ecomback.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Ecomback Admin}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-SortSite Tools by Ecomback <no-reply@ecomback.com>}
+      SCANNER_IPS: ${SCANNER_IPS:-}
+      PAGE_CONCURRENCY: ${PAGE_CONCURRENCY:-4}
+      SCAN_CONCURRENCY: ${SCAN_CONCURRENCY:-2}
+    volumes:
+      - sortsite-data:/data
+
+volumes:
+  sortsite-data:
