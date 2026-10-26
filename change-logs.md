@@ -9,6 +9,18 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Railway deployment — 26 Oct 2026
+
+Owner request: host the scanner on Railway behind the Vercel web app.
+
+### Changed
+- `Dockerfile`: removed `VOLUME ["/data"]`. Railway's builder rejects the `VOLUME` instruction; `/data` is now mounted at run time (Railway volume, `docker run -v`, or the named volume in `docker-compose.yml`, which already mounts it explicitly).
+
+### Verified
+- `docker-compose.yml` and the README `docker run` example both mount `/data` explicitly, so local container runs keep their data.
+
+---
+
 ## Repository move — 26 Oct 2026
 
 Owner request: move the code to the GitHub repository that will be connected to Vercel.

@@ -28,7 +28,7 @@ RUN npm run build \
  && chown -R node:node /app /data
 
 USER node
-VOLUME ["/data"]
+# No VOLUME instruction: Railway's builder rejects it. Mount /data at run time (docker run -v, compose, or a Railway volume).
 EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 4000) + '/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
