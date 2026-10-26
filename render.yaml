@@ -1,0 +1,28 @@
+# Render Blueprint — API + scanner (Docker) with a persistent disk for the database, screenshots and exports.
+# The web app is served by Vercel, which forwards /api, /media, /oauth and /.well-known here (vercel.json).
+services:
+  - type: web
+    name: ecomback-sortsite-api
+    runtime: docker
+    plan: 1c-2g # 1 CPU / 2 GB RAM: Chrome needs it; the 512 MB plans run out of memory during scans
+    region: virginia # same area as the Vercel deployment (iad1)
+    healthCheckPath: /api/v1/health
+    disk:
+      name: sortsite-data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      - key: BASE_URL
+        value: https://ecom-back-sortsite.vercel.app
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_ADMIN_EMAIL
+        value: admin@ecomback.com
+      - key: SEED_ADMIN_NAME
+        value: EcomBack Admin
+      - key: SEED_ADMIN_PASSWORD
+        sync: false # entered in the Render dashboard when the Blueprint is created
+      - key: PAGE_CONCURRENCY
+        value: "2"
+      - key: SCAN_CONCURRENCY
+        value: "1"

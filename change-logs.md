@@ -9,6 +9,18 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Render deployment — 26 Oct 2026
+
+Railway sign-ups were disabled, so the API + scanner moves to Render.
+
+### Added
+- `render.yaml` (Render Blueprint): Docker web service `ecomback-sortsite-api`, plan `1c-2g`, region `virginia` (next to Vercel `iad1`), health check `/api/v1/health`, 5 GB disk at `/data`, `BASE_URL` = the Vercel address, generated `SECRET_KEY`, admin password prompted at creation, `PAGE_CONCURRENCY=2`, `SCAN_CONCURRENCY=1`.
+
+### Changed
+- `Dockerfile`: the container starts as root, hands `$DATA_DIR` to the `node` user (`chown`) and runs the app as `node` through `gosu`. Hosts mount disks owned by root, which the app (running as `node`) could not write. `CHROME_ARGS` gains `--disable-dev-shm-usage` (small `/dev/shm` in hosted containers).
+
+---
+
 ## Railway deployment — 26 Oct 2026
 
 Owner request: host the scanner on Railway behind the Vercel web app.
