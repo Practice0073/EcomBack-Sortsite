@@ -44,8 +44,10 @@ async function request<T>(method: string, path: string, body?: unknown, opts: { 
     const data = isJson ? await res.json() : null;
     if (!res.ok) {
       if (res.status === 401 && !path.startsWith('/auth/')) onUnauthorized?.();
-      const err = (data ?? {}) as { error?: string; fields?: FieldError[] };
-      throw new ApiError(res.status, err.error ?? `Request failed (${res.status})`, err.fields ?? []);
+      const err = (data ?? {}) as { error?: unknown; fields?: unknown };
+      // Proxies (Vercel rewrites) answer with their own JSON, e.g. {"error":{"code":"502",...}}; only our string errors are shown as-is.
+      const fallback = res.status >= 502 && res.status <= 504 ? 'Cannot reach the server. Check that it is running and try again.' : `Request failed (${res.status})`;
+      throw new ApiError(res.status, typeof err.error === 'string' ? err.error : fallback, Array.isArray(err.fields) ? (err.fields as FieldError[]) : []);
     }
     return data as T;
   } catch (e) {
