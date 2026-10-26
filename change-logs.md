@@ -16,6 +16,9 @@ Owner request: host the scanner on Railway behind the Vercel web app.
 ### Fixed
 - Sign-in showed **"[object Object]"** on the Vercel deployment: when the API host is unreachable, Vercel's rewrite answers `502` with `{"error":{"code":"502","message":…}}`, and the web client displayed that object. Non-string `error` bodies now fall back to "Cannot reach the server…" (502–504) or "Request failed (status)". *File:* `web/src/lib/api.ts`.
 
+### Security
+- `npm audit fix` (no breaking changes): `body-parser` 2.4.0 (high: DoS via trailing bytes after a compressed body) and `fast-uri` 3.1.9 (moderate). Remaining 4 moderate findings need major upgrades (`react-router` 7, `uuid` via `exceljs`) and are left as is. *File:* `package-lock.json`.
+
 ### Changed
 - `Dockerfile`: removed `VOLUME ["/data"]`. Railway's builder rejects the `VOLUME` instruction; `/data` is now mounted at run time (Railway volume, `docker run -v`, or the named volume in `docker-compose.yml`, which already mounts it explicitly).
 
