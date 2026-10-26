@@ -1,0 +1,21 @@
+# Adds Caddy (automatic HTTPS) in front of the app from ../../docker-compose.yml. Used by setup.sh:
+#   docker compose -f docker-compose.yml -f deploy/oracle/docker-compose.caddy.yml up -d --build
+services:
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/oracle/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - sortsite
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -9,6 +9,19 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Oracle Cloud (Always Free) deployment — 26 Oct 2026
+
+Owner decision: host the API + scanner for free on an Oracle Cloud Always Free VM instead of paid Render.
+
+### Added
+- `deploy/oracle/setup.sh`: on an Ubuntu VM, installs Docker, opens ports 80/443 in iptables (Oracle images block them), derives a free hostname `<ip>.sslip.io`, writes `.env` once (generated `SECRET_KEY`, admin email/password prompted, `BASE_URL` = Vercel address, `SCANNER_IPS` = the VM's IP) and starts the app with Caddy; re-running updates the app and keeps `.env` and data.
+- `deploy/oracle/docker-compose.caddy.yml` + `deploy/oracle/Caddyfile`: Caddy in front of the existing `docker-compose.yml` service with automatic Let's Encrypt HTTPS.
+
+### Verified
+- `bash -n deploy/oracle/setup.sh` passes. Not run on a VM yet.
+
+---
+
 ## Render deployment — 26 Oct 2026
 
 Railway sign-ups were disabled, so the API + scanner moves to Render.

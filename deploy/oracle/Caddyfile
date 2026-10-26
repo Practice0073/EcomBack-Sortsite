@@ -1,0 +1,5 @@
+# HTTPS in front of the SortSite container. Caddy gets a Let's Encrypt certificate for $DOMAIN
+# (setup.sh uses <public-ip>.sslip.io, a free hostname that resolves to the server's IP).
+{$DOMAIN} {
+	reverse_proxy sortsite:4000
+}
