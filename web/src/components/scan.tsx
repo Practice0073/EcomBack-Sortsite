@@ -149,6 +149,8 @@ export function LiveProgress({ p, showUrl = true }: { p: ScanProgress; showUrl?:
 
 export function StopScanButton({ scanId, onDone, small = false }: { scanId: number; onDone?: () => void; small?: boolean }) {
   const [busy, setBusy] = useState(false);
+  // Stays set once the stop is accepted: the scan winds down over a few seconds and repeated clicks only repeat the toast.
+  const [stopping, setStopping] = useState(false);
   const { push } = useToast();
   const { can } = useAuth();
   if (!can('scan.run')) return null;
@@ -156,11 +158,12 @@ export function StopScanButton({ scanId, onDone, small = false }: { scanId: numb
     <button
       type="button"
       className={`btn btn--danger ${small ? 'btn--sm' : ''}`}
-      disabled={busy}
+      disabled={busy || stopping}
       onClick={async () => {
         setBusy(true);
         try {
           await api.post(`/scans/${scanId}/stop`);
+          setStopping(true);
           push({ kind: 'info', title: 'Stopping scan', body: 'Pages already checked are kept in the report.' });
           onDone?.();
         } catch (e) {
@@ -170,8 +173,8 @@ export function StopScanButton({ scanId, onDone, small = false }: { scanId: numb
         }
       }}
     >
-      {busy ? <Loader2 size={15} className="spin" aria-hidden="true" /> : <Square size={14} aria-hidden="true" fill="currentColor" />}
-      Stop Scan
+      {busy || stopping ? <Loader2 size={15} className="spin" aria-hidden="true" /> : <Square size={14} aria-hidden="true" fill="currentColor" />}
+      {stopping ? 'Stopping…' : 'Stop Scan'}
     </button>
   );
 }

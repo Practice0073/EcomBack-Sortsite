@@ -9,6 +9,19 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Stop Scan takes seconds — 27 Oct 2026
+
+Owner report: "Stop Scan" appeared not to work; each click only showed another "Stopping scan" toast.
+
+### Fixed
+- A stop was only noticed when a page finished, and a slow page can take up to the page timeout (180 s) to render, so the scan kept running for about a minute. The runner now polls for a stop every second and aborts in-flight fetches and Chrome renders through an `AbortSignal`; pages and links cut short are not recorded and go back on the queue, so **Resume** picks them up. *Files:* `server/engine/scanRunner.ts`, `server/engine/fetcher.ts` (`FetcherOptions.signal`, no retry after abort), `server/engine/browser.ts` (`RenderOptions.signal` closes the page; no retry after abort).
+- The Stop Scan button shows **Stopping…** and stays disabled once the stop is accepted. *File:* `web/src/components/scan.tsx`.
+
+### Verified
+- `npm run typecheck` clean. On a separate test server, a scan of www.newyorkdress.com (6 pages found, 0 done, same state as the report) stopped in **4 s**; resumed, stopped again in 4 s; resumed again and continued to 11 pages done with no duplicate pages.
+
+---
+
 ## Temporary API host: Mac + Cloudflare quick tunnel — 27 Oct 2026
 
 Owner request: log in and scan on the Vercel site now, before a permanent server exists.

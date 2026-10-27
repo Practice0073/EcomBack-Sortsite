@@ -132,6 +132,8 @@ export interface FetcherOptions {
   maxBodyBytes?: number;
   /** Hosts that receive the auth headers/cookies (never leak credentials to third parties). */
   authHosts: Set<string>;
+  /** Aborts in-flight requests when the scan is stopped. */
+  signal?: AbortSignal;
 }
 
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -148,7 +150,7 @@ export async function fetchUrl(url: string, fo: FetcherOptions, method: 'GET' | 
       fo.throttle.success();
     }
     const retryable = res.error !== null ? !res.timedOut : res.status !== null && RETRYABLE.has(res.status);
-    if (!retryable || attempt >= fo.retries) return { ...res, elapsedMs: Date.now() - started };
+    if (!retryable || attempt >= fo.retries || fo.signal?.aborted) return { ...res, elapsedMs: Date.now() - started };
     attempt++;
     await sleep(500 * 2 ** attempt);
   }
@@ -159,6 +161,9 @@ async function fetchOnce(url: string, fo: FetcherOptions, method: 'GET' | 'HEAD'
   let current = url;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), fo.timeoutMs);
+  const onStop = () => ac.abort();
+  fo.signal?.addEventListener('abort', onStop, { once: true });
+  if (fo.signal?.aborted) ac.abort();
   await fo.throttle.acquire();
   try {
     for (let hop = 0; hop < 10; hop++) {
@@ -198,6 +203,7 @@ async function fetchOnce(url: string, fo: FetcherOptions, method: 'GET' | 'HEAD'
     return { ...empty(url, current, redirects), error: reason, timedOut };
   } finally {
     clearTimeout(timer);
+    fo.signal?.removeEventListener('abort', onStop);
     fo.throttle.release();
   }
 }

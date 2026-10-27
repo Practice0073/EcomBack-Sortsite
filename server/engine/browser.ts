@@ -80,6 +80,8 @@ export interface RenderOptions {
   cssTechniques?: boolean;
   /** Per-scan cache of cross-origin stylesheet text, keyed by URL. */
   cssCache?: Map<string, Promise<string>>;
+  /** Closes the page when the scan is stopped, so a slow render does not hold the stop up. */
+  signal?: AbortSignal;
 }
 
 /** Map the scan's accessibility options to axe-core tags (Plan.md §7). */
@@ -103,9 +105,10 @@ const NETWORK = /net::ERR_(NETWORK_CHANGED|CONNECTION_RESET|CONNECTION_CLOSED|IN
 /** Render with retries: once for transient navigation errors, up to twice (3 s, 10 s apart) for network blips. */
 export async function renderPage(url: string, ro: RenderOptions): Promise<RenderResult> {
   let result = await renderOnce(url, ro);
+  if (ro.signal?.aborted) return result;
   if (result.error && TRANSIENT.test(result.error)) return renderOnce(url, ro);
   for (const waitMs of [3000, 10_000]) {
-    if (!result.error || !NETWORK.test(result.error)) break;
+    if (!result.error || !NETWORK.test(result.error) || ro.signal?.aborted) break;
     await new Promise((r) => setTimeout(r, waitMs));
     result = await renderOnce(url, ro);
   }
@@ -115,6 +118,8 @@ export async function renderPage(url: string, ro: RenderOptions): Promise<Render
 async function renderOnce(url: string, ro: RenderOptions): Promise<RenderResult> {
   const browser = await getBrowser();
   const context = await browser.createBrowserContext();
+  const onStop = () => void context.close().catch(() => undefined);
+  ro.signal?.addEventListener('abort', onStop, { once: true });
   const page = await context.newPage();
   const started = Date.now();
   const resources = new Map<string, NetResource>();
@@ -277,6 +282,7 @@ async function renderOnce(url: string, ro: RenderOptions): Promise<RenderResult>
   } catch (e) {
     return { html: '', finalUrl: url, title: '', axe: null, resources: [...resources.values()], totalBytes, loadMs: Date.now() - started, smallText: [], horizontalScroll: null, screenshot: null, cssFindings: [], error: (e as Error).message };
   } finally {
+    ro.signal?.removeEventListener('abort', onStop);
     await context.close().catch(() => undefined);
   }
 }

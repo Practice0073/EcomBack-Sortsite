@@ -107,6 +107,8 @@ class ScanRunner {
   private lastStateSave = 0;
   private stopChecked = 0;
   private stopFlag = false;
+  /** Aborted on stop: cancels in-flight fetches and Chrome renders so a stop takes seconds, not a page timeout. */
+  private stopCtl = new AbortController();
   private chromeOk = browserAvailable();
   private avgMs = 0;
   private axeTags: string[] | null;
@@ -135,7 +137,7 @@ class ScanRunner {
     const jar = new CookieJar(this.o.crawler.authMode === 'cookies' ? this.o.crawler.cookies : '');
     const headers = authHeaders(this.o.crawler);
     const throttle = new Throttle(this.o.crawler.throttle);
-    const base = { timeoutMs: this.o.crawler.pageTimeoutMs, retries: this.o.crawler.retries, headers, jar, throttle };
+    const base = { timeoutMs: this.o.crawler.pageTimeoutMs, retries: this.o.crawler.retries, headers, jar, throttle, signal: this.stopCtl.signal };
 
     if (resumed) {
       const state = JSON.parse(this.scan.crawl_state!) as CrawlState;
@@ -157,11 +159,17 @@ class ScanRunner {
     }
 
     await this.loadRobots();
-    await this.crawl();
-    if (this.stopFlag) return this.finish('stopped');
-    await this.checkLinks();
-    if (this.stopFlag) return this.finish('stopped');
-    await this.recheckFailedLinks();
+    // Poll for a stop request even while every worker is busy on a slow page.
+    const stopWatch = setInterval(() => this.shouldStop(), 1000);
+    try {
+      await this.crawl();
+      if (this.stopFlag) return this.finish('stopped');
+      await this.checkLinks();
+      if (this.stopFlag) return this.finish('stopped');
+      await this.recheckFailedLinks();
+    } finally {
+      clearInterval(stopWatch);
+    }
     await this.siteLevelChecks();
     await this.finish('completed');
   }
@@ -229,6 +237,7 @@ class ScanRunner {
     if (Date.now() - this.stopChecked > 1500) {
       this.stopChecked = Date.now();
       this.stopFlag = Number(q.value('SELECT stop_requested FROM scans WHERE id = ?', [this.scan.id])) === 1;
+      if (this.stopFlag) this.stopCtl.abort();
     }
     return this.stopFlag;
   }
@@ -323,10 +332,16 @@ class ScanRunner {
     this.saveState(true);
   }
 
+  /** Puts a page the stop interrupted back at the front of the queue (saved with the crawl state for a resume). */
+  private requeue(item: QueueItem) {
+    this.frontier.unshift(item);
+  }
+
   private async processUrl(item: QueueItem) {
     const t0 = Date.now();
     this.setCurrent(item.url);
     const res = await fetchUrl(item.url, this.fo);
+    if (this.stopFlag) return this.requeue(item); // cut short by the stop: keep it for a resume, record nothing
     const ct = (res.contentType ?? '').toLowerCase();
     const finalUrl = this.normalizeUrl(res.finalUrl) ?? item.url;
     this.recordResource(item.url, res, classify(item.url, ct));
@@ -375,7 +390,12 @@ class ScanRunner {
         usability: this.o.rules.usability.enabled && this.o.rules.usability.bestPractices,
         cssTechniques: this.o.rules.accessibility.enabled,
         cssCache: this.cssCache,
+        signal: this.stopCtl.signal,
       });
+      if (this.stopFlag) {
+        this.pagesDone--;
+        return this.requeue(item);
+      }
       if (rendered.error) {
         console.warn(`[scan ${this.scan.id}] render failed for ${finalUrl}: ${rendered.error}`);
         this.diag('render-failed', `Could not render in Chrome (static checks only): ${rendered.error.slice(0, 160)}`, finalUrl);
@@ -582,6 +602,7 @@ class ScanRunner {
           // Hard per-link budget: a server that never answers can't hold up the whole scan.
           await withTimeout(this.checkOne(url), budgetMs);
         } catch {
+          if (this.stopFlag) break;
           this.recordResourceRaw(url, null, 0, null, isInternal(url, this.scope), null, null, `Timed out after ${Math.round(budgetMs / 1000)}s`);
         }
         done++;
@@ -602,6 +623,7 @@ class ScanRunner {
     let res = await fetchUrl(url, fo, 'HEAD', false);
     // Many servers mishandle HEAD — confirm failures with GET (pointless for rate limits).
     if ((res.status === null && !res.timedOut) || (res.status !== null && res.status >= 400 && res.status !== 429)) res = await fetchUrl(url, fo, 'GET', true);
+    if (this.stopFlag) return; // aborted by the stop: unchecked, so a resume checks it again
     this.recordResource(url, { ...res, body: null }, classify(url, res.contentType));
     if (internal && res.body && (res.contentType ?? '').includes('text/css') && this.o.rules.standards.enabled && !isShopifyAppAsset(url)) {
       await this.analyzeCss(url, res);
