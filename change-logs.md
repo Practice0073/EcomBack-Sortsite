@@ -9,6 +9,18 @@ Format: `## [version] — date`, then **Added / Changed / Fixed / Verified** sec
 
 ---
 
+## Temporary API host: Mac + Cloudflare quick tunnel — 27 Oct 2026
+
+Owner request: log in and scan on the Vercel site now, before a permanent server exists.
+
+### Changed
+- `vercel.json`: the `/api`, `/media`, `/oauth/token|revoke` and `/.well-known` rewrites point to `https://relying-hose-periodically-millions.trycloudflare.com`, a quick tunnel to the app running on the owner's Mac (`BASE_URL=https://ecom-back-sortsite.vercel.app`, `TRUST_PROXY=1`). The address changes whenever the tunnel restarts; replace it in `vercel.json` and push.
+
+### Verified
+- `GET <tunnel>/api/v1/health` → `{"ok":true,"chrome":true}`.
+
+---
+
 ## Oracle Cloud (Always Free) deployment — 26 Oct 2026
 
 Owner decision: host the API + scanner for free on an Oracle Cloud Always Free VM instead of paid Render.

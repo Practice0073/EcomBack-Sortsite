@@ -5,11 +5,11 @@
   "outputDirectory": "dist/web",
   "installCommand": "npm ci",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://sortsite-api.example.com/api/:path*" },
-    { "source": "/media/:path*", "destination": "https://sortsite-api.example.com/media/:path*" },
-    { "source": "/oauth/token", "destination": "https://sortsite-api.example.com/oauth/token" },
-    { "source": "/oauth/revoke", "destination": "https://sortsite-api.example.com/oauth/revoke" },
-    { "source": "/.well-known/:path*", "destination": "https://sortsite-api.example.com/.well-known/:path*" },
+    { "source": "/api/:path*", "destination": "https://relying-hose-periodically-millions.trycloudflare.com/api/:path*" },
+    { "source": "/media/:path*", "destination": "https://relying-hose-periodically-millions.trycloudflare.com/media/:path*" },
+    { "source": "/oauth/token", "destination": "https://relying-hose-periodically-millions.trycloudflare.com/oauth/token" },
+    { "source": "/oauth/revoke", "destination": "https://relying-hose-periodically-millions.trycloudflare.com/oauth/revoke" },
+    { "source": "/.well-known/:path*", "destination": "https://relying-hose-periodically-millions.trycloudflare.com/.well-known/:path*" },
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
